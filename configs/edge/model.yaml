@@ -1,0 +1,33 @@
+PARSER: false
+
+NAME: TEST
+SAVE: false
+INPUT_SHAPE: [ 640, 360 ]
+OUTPUT_SHAPE: [ 640, 360 ]
+# OUTPUT_SHAPE: [80,45]
+#OUTPUT_SHAPE: [160,90]
+# PRIOR: false
+SEED: null
+
+BACKBONE:
+  NAME: MobileNetV2
+  ALPHA: 0.35
+  WEIGHTS: imagenet
+  # OUTPUT_IDX: &idx 5
+  # OUTPUT_IDS: [1, 2, 3, *idx]
+  OUTPUT_IDX: &idx 3
+  OUTPUT_IDS: [1, 2, *idx]
+  TRAIN_IDX: null
+
+  FINE_TUNING:
+    EPOCHS: 5
+    FINE_TUNING: false
+
+LOSS:
+  SIGMOID: true
+  FOCAL: true
+  BETA_UPPER: 0.5
+  GAMMA: 2.0
+  CLASS_WEIGHTED: true
+  BETA_WEIGHTED: false
+
