@@ -1,13 +1,18 @@
-PARSER: false
+TRAIN_MODEL: true
+EPOCHS: 40
 
 NAME: TEST
 SAVE: false
 INPUT_SHAPE: [ 640, 360 ]
-OUTPUT_SHAPE: [ 640, 360 ]
-# OUTPUT_SHAPE: [80,45]
-#OUTPUT_SHAPE: [160,90]
-# PRIOR: false
+OUTPUT_SHAPE: [ 320, 180 ]
 SEED: null
+PARSER: false
+
+# Model type: defines the task which is solved by the model ['edge detector']
+MODEL:
+  TYPE: 'edge detector'
+  ARCHITECTURE: 'SGED'
+  DILATION: false
 
 BACKBONE:
   NAME: MobileNetV2
@@ -24,10 +29,31 @@ BACKBONE:
     FINE_TUNING: false
 
 LOSS:
-  SIGMOID: true
-  FOCAL: true
-  BETA_UPPER: 0.5
-  GAMMA: 2.0
-  CLASS_WEIGHTED: true
-  BETA_WEIGHTED: false
+  edge:
+    sigmoid:
+      apply: false
+      class_individually_weighted: true
+      min_edge_loss_weighting: 0.05
+      max_edge_loss_weighting: 0.95
+    focal:
+      apply: true
+      edge_loss_weighting: true
+      min_edge_loss_weighting: 0.05
+      max_edge_loss_weighting: 0.95
+      power: 2.0
+  vert: null
+  cont: null
+  flow_edge: null
+  flow_scene: null
 
+LR:
+  START: 0.0015
+  END: 0.0005
+  POWER: 0.9
+
+CALLBACKS:
+  DEL_OLD_CKPT: false
+  CKPT_FREQ: 5
+  DEL_OLD_TB: true
+  LOG_TB: false
+  TENSORBOARD: false

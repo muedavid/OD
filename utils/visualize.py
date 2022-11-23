@@ -1,7 +1,7 @@
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
-import network_elements.metrics as metrics
+from metrics import metrics
 
 
 def plot_training_results(res=None, losses=None, metrics=None, res_fine=None, epochs=None, save=False, path=None,

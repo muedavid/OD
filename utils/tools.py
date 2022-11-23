@@ -37,7 +37,6 @@ def parser(cfg, cfg_data):
         p.add_argument('--model', type=str, required=False, default=None)
         p.add_argument('--data', type=str, required=False, default=None)
 
-        # p.add_argument('--bs', type=int, required=False, default=None)
         p.add_argument('--epoch', type=int, required=False, default=None)
 
         p.add_argument('--train_model', action='store_true', default=None)
@@ -45,9 +44,6 @@ def parser(cfg, cfg_data):
 
         p.add_argument('--sigmoid', action='store_true', default=None)
         p.add_argument('--focal', action='store_true', default=None)
-        # parser.add_argument('--beta_upper', type=float, required=False, default=None)
-        # parser.add_argument('--gamma', type=float, required=False, default=None)
-        # parser.add_argument('--alpha', type=float, required=False, default=None)
         args = p.parse_args()
 
         print(args.save)

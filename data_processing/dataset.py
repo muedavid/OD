@@ -34,11 +34,8 @@ class DataProcessing:
         self.input_shape = input_shape
         self.output_shape = output_shape
         self.cfg = tools.config_loader(osp.join(config_path, 'dataset.yaml'))
-        # yaml_path = osp.join(config_path, 'dataset.yaml')
-        # with open(yaml_path, 'r') as file:
-        #     self.cfg = yaml.safe_load(file)
-        # file.close()
         self.input_output_keys()
+        self.rng = tf.random.Generator.from_seed(123, alg='philox')
 
     def path_definitions(self):
         paths = dict()
@@ -74,7 +71,7 @@ class DataProcessing:
                     self.vert_list[key_ds] = yaml.safe_load(file)
                 file.close()
 
-    def load_dataset(self, ds_type, shuffle=False, prefetch=False, rng=None, normalize=True):
+    def load_dataset(self, ds_type, normalize=True):
         max_idx = min(self.ds_inf[ds_type]["info"]["num_frames"] - 1, self.cfg[ds_type]["MAX_IMG"] - 1)
 
         dataset = tf.data.Dataset.from_tensor_slices(range(max_idx))
@@ -95,17 +92,17 @@ class DataProcessing:
 
         if self.cfg[ds_type]["CACHE"]:
             dataset = dataset.cache()
-        if shuffle:
+        if self.cfg[ds_type]["SHUFFLE"]:
             dataset = dataset.shuffle(image_count, reshuffle_each_iteration=True)
         if self.cfg[ds_type]["DATA_AUG"]:
-            dataset = dataset.map(lambda x: ds_aug.augment_mapping(x, rng, self.cfg[ds_type]["DATA_AUG"]),
+            dataset = dataset.map(lambda x: ds_aug.augment_mapping(x, self.rng, self.cfg[ds_type]["DATA_AUG"]),
                                   num_parallel_calls=tf.data.experimental.AUTOTUNE)
         if normalize:
             dataset = dataset.map(normalize_input_image, num_parallel_calls=tf.data.experimental.AUTOTUNE)
         dataset = dataset.map(lambda x: split_dataset_dictionary(x), num_parallel_calls=tf.data.experimental.AUTOTUNE)
         if self.cfg[ds_type]["BATCH_SIZE"]:
             dataset = dataset.batch(self.cfg[ds_type]["BATCH_SIZE"])
-        if prefetch:
+        if self.cfg[ds_type]["PREFETCH"]:
             dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
         return dataset, image_count
 

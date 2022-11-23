@@ -9,7 +9,7 @@ MASK_TYPE: # 0: INSTANCE, 1: CATEGORY
   vert: 1
 
 in:
-  edge: true
+  edge: false
   vert: false
   cont: false
 
@@ -32,6 +32,8 @@ TEST:
   BATCH_SIZE: 3
   # BATCH_SIZE: 1
   CACHE: true
+  SHUFFLE: false
+  PREFETCH: true
 
   DATA_AUG: null
 
@@ -42,6 +44,8 @@ TRAIN:
   BATCH_SIZE: 3
   # BATCH_SIZE: 1
   CACHE: true
+  SHUFFLE: true
+  PREFETCH: true
 
   DATA_AUG: null
 #    blur: false
