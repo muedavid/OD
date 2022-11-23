@@ -1,5 +1,5 @@
 TRAIN_MODEL: true
-EPOCHS: 40
+EPOCHS: 1
 
 NAME: TEST
 SAVE: false
@@ -33,13 +33,13 @@ LOSS:
     sigmoid:
       apply: false
       class_individually_weighted: true
-      min_edge_loss_weighting: 0.05
-      max_edge_loss_weighting: 0.95
+      min_edge_loss_weighting: 0.0005
+      max_edge_loss_weighting: 0.9995
     focal:
       apply: true
       edge_loss_weighting: true
-      min_edge_loss_weighting: 0.05
-      max_edge_loss_weighting: 0.95
+      min_edge_loss_weighting: 0.95
+      max_edge_loss_weighting: 0.05
       power: 2.0
   vert: null
   cont: null
@@ -47,13 +47,13 @@ LOSS:
   flow_scene: null
 
 LR:
-  START: 0.0015
+  START: 0.015
   END: 0.0005
   POWER: 0.9
 
 CALLBACKS:
-  DEL_OLD_CKPT: false
-  CKPT_FREQ: 5
+  DEL_OLD_CKPT: true
+  CKPT_FREQ: 1
   DEL_OLD_TB: true
   LOG_TB: false
   TENSORBOARD: false

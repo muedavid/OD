@@ -14,7 +14,7 @@ import network_elements.backbones as backbones
 import network_elements.features as features
 import network_elements.losses as losses
 import network_elements.metrics as metrics
-import utils.visualize as visualize
+import utils.plots as visualize
 import utils.tools as tools
 import utils.learning_utils as learning_utils
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'

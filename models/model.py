@@ -5,7 +5,7 @@ from datetime import datetime
 from models import model_data, edge_detector
 from losses import edge_losses
 from metrics import metrics
-from utils import visualize, tools
+from utils import tools
 
 
 class Model:
@@ -20,7 +20,6 @@ class Model:
         tf.random.set_seed(self.cfg['SEED'])
     
     def load_data(self, dataset_name):
-        
         self.Data = model_data.ModelData(self.cfg["NAME"], dataset_name, make_dirs=True,
                                          del_old_ckpt=self.cfg["CALLBACKS"]["DEL_OLD_CKPT"],
                                          del_old_tb=self.cfg["CALLBACKS"]["DEL_OLD_TB"])
@@ -35,7 +34,7 @@ class Model:
     def get_best_model_from_checkpoints(self):
         print(self.Data.get_model_path_max_f1())
         return tf.keras.models.load_model(self.Data.get_model_path_max_f1(),
-                                          custom_objects=self.custom_objects)
+                                          custom_objects=self.custom_objects, compile=False)
     
     def get_loss_function(self):
         loss_functions = dict()
@@ -62,12 +61,13 @@ class Model:
                 self.custom_objects['WeightedMultiLabelSigmoidLoss'] = edge_losses.WeightedMultiLabelSigmoidLoss
         return loss_functions
     
-    def get_metrics(self):
+    def get_metrics(self, num_classes):
         metric_dic = dict()
         
         if self.cfg['LOSS']['edge']:
             metric_dic['out_edge'] = [metrics.BinaryAccuracyEdges(threshold_prediction=0),
-                                      metrics.F1Edges(threshold_prediction=0, threshold_edge_width=0)]
+                                      metrics.F1Edges(num_classes=num_classes, classes_individually=True,
+                                                      threshold_prediction=0, threshold_edge_width=0)]
             
             self.custom_objects['BinaryAccuracyEdges'] = metrics.BinaryAccuracyEdges
             self.custom_objects['F1Edges'] = metrics.F1Edges
@@ -76,15 +76,16 @@ class Model:
     
     def get_callbacks(self):
         # freq = int(np.ceil(img_count / self.bs) * self.cfg["CALLBACKS"]["CKPT_FREQ"]) + 1
-
+        
         callbacks = [tf.keras.callbacks.ModelCheckpoint(
             filepath=self.Data.paths["CKPT"] + "/ckpt-loss={val_loss:.2f}-epoch={epoch:.2f}-f1={val_f1:.4f}",
-            save_weights_only=False, save_best_only=False, monitor="val_f1", verbose=1, save_freq='epoch', period=self.cfg["CALLBACKS"]["CKPT_FREQ"])]
-
+            save_weights_only=False, save_best_only=False, monitor="val_f1", verbose=1, save_freq='epoch',
+            period=self.cfg["CALLBACKS"]["CKPT_FREQ"])]
+        
         if self.cfg['CALLBACKS']['LOG_TB']:
             logdir = os.path.join(self.Data.paths['TBLOGS'], datetime.now().strftime("%Y%m%d-%H%M%S"))
             callbacks.append(tf.keras.callbacks.TensorBoard(log_dir=logdir, histogram_freq=1))
-
+        
         return callbacks
     
     def get_lr(self, img_count, batch_size):
@@ -93,4 +94,3 @@ class Model:
                                                                     end_learning_rate=self.cfg['LR']['END'],
                                                                     power=self.cfg['LR']['POWER'])
         return lr_schedule
-
