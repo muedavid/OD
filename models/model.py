@@ -65,7 +65,8 @@ class Model:
         metric_dic = dict()
         
         if self.cfg['LOSS']['edge']:
-            metric_dic['out_edge'] = [metrics.BinaryAccuracyEdges(threshold_prediction=0),
+            metric_dic['out_edge'] = [metrics.BinaryAccuracyEdges(num_classes=num_classes, classes_individually=True,
+                                                                  threshold_prediction=0),
                                       metrics.F1Edges(num_classes=num_classes, classes_individually=True,
                                                       threshold_prediction=0, threshold_edge_width=0)]
             
