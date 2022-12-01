@@ -39,9 +39,11 @@ class DataProcessing:
 
     def path_definitions(self):
         paths = dict()
-        for key in ["TRAIN", "TEST", "IMG_ONLY"]:
+        for key in ["TRAIN", "TEST"]:
             if self.cfg[key] is not None:
                 paths[key] = osp.join(self.cfg["BASE_PATH_DATA"], self.cfg["NAME"], self.cfg[key]["NAME"])
+        if self.cfg["IMG_ONLY"] is not None:
+            paths["IMG_ONLY"] = osp.join(self.cfg["BASE_PATH_DATA"], self.cfg["IMG_ONLY"]["PATH"])
         self.paths['DATA'] = paths
 
         # Open JSON File with relative paths information
@@ -66,7 +68,7 @@ class DataProcessing:
                     else:
                         self.ds_inf[key_ds][key] = ds_inf_tmp[key]
 
-            if self.cfg['VERT_LIST']:
+            if self.cfg['VERT_LIST'] and key_ds != 'IMG_ONLY':
                 with open(self.ds_inf['paths']['VERT'], 'r') as file:
                     self.vert_list[key_ds] = yaml.safe_load(file)
                 file.close()
@@ -75,13 +77,13 @@ class DataProcessing:
         max_idx = min(self.ds_inf[ds_type]["info"]["num_frames"] - 1, self.cfg[ds_type]["MAX_IMG"] - 1)
 
         dataset = tf.data.Dataset.from_tensor_slices(range(max_idx))
-        dataset = dataset.map(lambda x: self.parse_image(x, ds_type), num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        dataset = dataset.map(lambda x: self.parse_data(x, ds_type), num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
-        if self.cfg['out']['flow_edge']:
+        if self.cfg['out']['flow_edge'] and ds_type != "IMG_ONLY":
             edge_dataset = self.load_flow_ds(ds_type, max_idx, self.ds_inf[ds_type]["info"]["flow"]["edge"])
             dataset_combined = tf.data.Dataset.zip((dataset, edge_dataset))
             dataset = dataset_combined.map(self.combine_ds, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-        elif self.cfg['out']['flow_scene']:
+        elif self.cfg['out']['flow_scene'] and ds_type != "IMG_ONLY":
             edge_dataset = self.load_flow_ds(ds_type, max_idx, self.ds_inf[ds_type]["info"]["flow"]["scene"])
             dataset_combined = tf.data.Dataset.zip((dataset, edge_dataset))
             dataset = dataset_combined.map(self.combine_ds, num_parallel_calls=tf.data.experimental.AUTOTUNE)
@@ -106,7 +108,7 @@ class DataProcessing:
             dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
         return dataset, image_count
 
-    def parse_image(self, img_idx, ds_type):
+    def parse_data(self, img_idx, ds_type):
         img_idx_str = tf.strings.as_string(img_idx, width=4, fill='0')
         end_str = tf.constant(".png", dtype=tf.string)
         sep_str = tf.constant('/', dtype=tf.string)
@@ -121,27 +123,28 @@ class DataProcessing:
         image = tf.cast(image, tf.uint8)
         dataset_dict['in_img'] = image
 
-        # mask input:
-        mask_base_path = tf.constant(self.paths[ds_type]['PRIOR_ANN'], dtype=tf.string)
-        mask_path = tf.strings.join([mask_base_path, sep_str, img_idx_str, end_str])
-        mask_input = tf.io.read_file(mask_path)
-        mask_input = tf.image.decode_png(mask_input, channels=3)
-        for inp in self.inputs:
-            if self.cfg['in'][inp]:
-                idx = self.ds_inf[ds_type]['info']['mask'][inp]
-                mask = mask_input[:, :, idx:idx + 1]
-                dataset_dict['in_' + inp] = self.preprocess_mask(mask, ds_type, inp)
-
-        # mask output:
-        mask_base_path = tf.constant(self.paths[ds_type]['ANN'], dtype=tf.string)
-        mask_path = tf.strings.join([mask_base_path, sep_str, img_idx_str, end_str])
-        mask_output = tf.io.read_file(mask_path)
-        mask_output = tf.image.decode_png(mask_output, channels=3)
-        # unrolled for loop, execute for each statement individually and also if statements (python side effect)
-        for out in self.outputs_ann:
-            idx = self.ds_inf[ds_type]['info']['mask'][out]
-            mask = mask_output[:, :, idx:idx + 1]
-            dataset_dict['out_' + out] = self.preprocess_mask(mask, ds_type, out)
+        if ds_type != 'IMG_ONLY':
+            # mask input:
+            mask_base_path = tf.constant(self.paths[ds_type]['PRIOR_ANN'], dtype=tf.string)
+            mask_path = tf.strings.join([mask_base_path, sep_str, img_idx_str, end_str])
+            mask_input = tf.io.read_file(mask_path)
+            mask_input = tf.image.decode_png(mask_input, channels=3)
+            for inp in self.inputs:
+                if self.cfg['in'][inp]:
+                    idx = self.ds_inf[ds_type]['info']['mask'][inp]
+                    mask = mask_input[:, :, idx:idx + 1]
+                    dataset_dict['in_' + inp] = self.preprocess_mask(mask, ds_type, inp)
+    
+            # mask output:
+            mask_base_path = tf.constant(self.paths[ds_type]['ANN'], dtype=tf.string)
+            mask_path = tf.strings.join([mask_base_path, sep_str, img_idx_str, end_str])
+            mask_output = tf.io.read_file(mask_path)
+            mask_output = tf.image.decode_png(mask_output, channels=3)
+            # unrolled for loop, execute for each statement individually and also if statements (python side effect)
+            for out in self.outputs_ann:
+                idx = self.ds_inf[ds_type]['info']['mask'][out]
+                mask = mask_output[:, :, idx:idx + 1]
+                dataset_dict['out_' + out] = self.preprocess_mask(mask, ds_type, out)
 
         return dataset_dict
 

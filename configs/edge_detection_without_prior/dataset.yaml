@@ -1,0 +1,73 @@
+NAME: edge_detection
+
+BASE_PATH_DATA: /home/david/SemesterProject/Datasets
+DATASET_JSON: dataset.json
+
+MASK_TYPE: # 0: INSTANCE, 1: CATEGORY
+  edge: 1
+  cont: 1
+  vert: 1
+
+in:
+  edge: false
+  vert: false
+  cont: false
+
+out:
+  edge: true
+  vert: false
+  cont: false
+  flow_edge: false
+  flow_scene: false
+
+# As already implemented just as additional information and example on how to load
+VERT_LIST: false
+
+
+# DATASETS:
+TEST:
+  NAME: Test
+  MAX_IMG: 300
+
+  BATCH_SIZE: 3
+  # BATCH_SIZE: 1
+  CACHE: true
+  SHUFFLE: false
+  PREFETCH: true
+
+  DATA_AUG: null
+
+TRAIN:
+  NAME: Train
+  MAX_IMG: 1500
+
+  BATCH_SIZE: 3
+  # BATCH_SIZE: 1
+  CACHE: true
+  SHUFFLE: true
+  PREFETCH: true
+
+  DATA_AUG:
+    blur: false
+    brightness: 0.15
+    contrast_factor: 0.85
+    gaussian_value: 0.015
+    hue: 0.05
+    noise_std: 0.0
+    saturation: 0.9
+    sigma: 1.0
+    strength_spot: 0.3
+    value: 0.1
+
+IMG_ONLY:
+  PATH: 'Real'
+
+  MAX_IMG: 100
+
+  BATCH_SIZE: 3
+
+  CACHE: true
+  SHUFFLE: false
+  PREFETCH: true
+
+  DATA_AUG: null

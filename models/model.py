@@ -6,7 +6,8 @@ from models import model_data, edge_detector
 from losses import edge_losses
 from metrics import metrics
 from utils import tools
-
+from tflite_support.metadata_writers import image_segmenter
+from tflite_support.metadata_writers import writer_utils
 
 class Model:
     custom_objects = dict()
@@ -21,8 +22,8 @@ class Model:
     
     def load_data(self, dataset_name):
         self.Data = model_data.ModelData(self.cfg["NAME"], dataset_name, make_dirs=True,
-                                         del_old_ckpt=self.cfg["CALLBACKS"]["DEL_OLD_CKPT"],
-                                         del_old_tb=self.cfg["CALLBACKS"]["DEL_OLD_TB"])
+                                         del_old_ckpt=self.cfg["CALLBACKS"]["DEL_OLD_CKPT"] and self.cfg['TRAIN_MODEL'],
+                                         del_old_tb=self.cfg["CALLBACKS"]["DEL_OLD_TB"] and self.cfg['TRAIN_MODEL'])
         
         self.train_model = self.cfg['TRAIN_MODEL']
     
@@ -33,8 +34,15 @@ class Model:
     
     def get_best_model_from_checkpoints(self):
         print(self.Data.get_model_path_max_f1())
-        return tf.keras.models.load_model(self.Data.get_model_path_max_f1(),
-                                          custom_objects=self.custom_objects, compile=False)
+        model = tf.keras.models.load_model(self.Data.get_model_path_max_f1(),
+                                           custom_objects=self.custom_objects, compile=False)
+
+        if self.cfg['SAVE']:
+            model.save(self.Data.paths["MODEL"])
+            model.trainable = False
+            model.save(self.Data.paths["TFLITE"])
+        
+        return model
     
     def get_loss_function(self):
         loss_functions = dict()
@@ -95,3 +103,43 @@ class Model:
                                                                     end_learning_rate=self.cfg['LR']['END'],
                                                                     power=self.cfg['LR']['POWER'])
         return lr_schedule
+    
+    def convert_model_to_tflite(self, model):
+        if not os.path.isfile(self.Data.files['OUTPUT_TFLITE_MODEL']):
+            model.trainable = False
+            model.save(self.Data.paths["TFLITE"])
+        converter = tf.lite.TFLiteConverter.from_saved_model(self.Data.paths["TFLITE"])
+        converter.optimizations = [tf.lite.Optimize.DEFAULT]
+        converter.target_spec.supported_types = [tf.float16]
+        tflite_model = converter.convert()
+        tf.lite.experimental.Analyzer.analyze(model_content=tflite_model, gpu_compatibility=True)
+        
+        # Save the model.
+        with open(self.Data.files['OUTPUT_TFLITE_MODEL'], 'wb') as f:
+            f.write(tflite_model)
+        print("saved")
+        labels = []
+        for name, label in self.cfg['CATEGORIES'].items():
+            labels.append({'name': name, 'id': label})
+        sorted_labels = sorted(labels, key=lambda d: d['id'])
+
+        with open(self.Data.files['OUTPUT_TFLITE_LABEL_MAP'], 'w') as f:
+            for label in sorted_labels:
+                name = label['name']
+                f.write(name + '\n')
+        
+    def convert_model_to_tflite_image_segmenter(self):
+        
+        ImageSegmenterWriter = image_segmenter.MetadataWriter
+        _MODEL_PATH = self.Data.files['OUTPUT_TFLITE_MODEL']
+        _SAVE_TO_PATH = self.Data.files['OUTPUT_TFLITE_MODEL_METADATA']
+        _INPUT_NORM_MEAN = 0
+        _INPUT_NORM_STD = 1
+        _LABEL_FILE = self.Data.files['OUTPUT_TFLITE_LABEL_MAP']
+        writer = ImageSegmenterWriter.create_for_inference(writer_utils.load_file(_MODEL_PATH), [_INPUT_NORM_MEAN],
+                                                           [_INPUT_NORM_STD], [_LABEL_FILE])
+
+        # Populate the metadata into the model.
+        writer_utils.save_file(writer.populate(), _SAVE_TO_PATH)
+
+        

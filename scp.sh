@@ -1,6 +1,6 @@
 #!/bin/bash
 
-IP=10.5.220.249
+IP=10.5.220.247
 HOST=david@${IP}
 BASE_PATH=/home/david/SemesterProject/OD
 DIR1=data_processing

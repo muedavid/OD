@@ -21,7 +21,7 @@ class ModelData:
         self.paths = {
             'MODEL': osp.join(base_path_model, data, model) if data_model_loaded is None else osp.join(base_path_model,
                                                                                                        data_model_loaded,
-                                                                                                       model),
+                                                                                           model),
             'CKPT': osp.join(base_path_model, data, model, 'CKPT') if data_model_loaded is None else osp.join(
                 base_path_model, data_model_loaded, model, 'CKPT'),
             'TBLOGS': osp.join(base_path_model, data, model, 'logs') if data_model_loaded is None else osp.join(
@@ -35,7 +35,7 @@ class ModelData:
         
         self.files = {'OUTPUT_TFLITE_MODEL': osp.join(self.paths['TFLITE'], model + '.tflite'),
                       'OUTPUT_TFLITE_MODEL_METADATA': osp.join(self.paths['TFLITE'], model + '_metadata.tflite'),
-                      'OUTPUT_TFLITE_LABEL_MAP': osp.join(self.paths['TFLITE'], model + '_tflite_label_map.txt'), }
+                      'OUTPUT_TFLITE_LABEL_MAP': osp.join(self.paths['TFLITE'], model + '_labels.txt'), }
         
         if make_dirs:
             for path in self.paths.keys():
@@ -60,7 +60,7 @@ class ModelData:
         
         f1_max = 0
         for ckpt_name in model_ckpt:
-            if float(ckpt_name[-4:]) > f1_max:
+            if float(ckpt_name[-4:]) >= f1_max:
                 f1_max = float(ckpt_name[-4:])
                 model_path = self.paths['CKPT'] + "/" + ckpt_name
         return model_path

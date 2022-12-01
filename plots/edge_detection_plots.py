@@ -28,7 +28,7 @@ def plot_edges(images=None, labels=None, predictions=None, save=False, path=None
             plt.axis('off')
         if predictions is not None:
             for j in range(num_classes):
-                plt.subplot(rows, num_exp, (2 + j) * num_exp + i + 1)
+                plt.subplot(rows, num_exp, (1 + (labels is not None) + j) * num_exp + i + 1)
                 plt.title("Estimation of class: {}".format(j + 1))
                 plt.imshow(predictions[i, :, :, j], cmap='gray', vmin=-5, vmax=5)
                 plt.axis('off')
@@ -52,8 +52,10 @@ def plot_threshold_metrics_evaluation(model, ds, num_classes, classes_displayed_
     else:
         num_classes_dimension = 1
     
-    f1_score = precision_score = recall_score = accuracy_score = \
-        np.zeros((num_classes_dimension, threshold_array.shape[0]))
+    f1_score = np.zeros((num_classes_dimension, threshold_array.shape[0]))
+    precision_score = np.zeros((num_classes_dimension, threshold_array.shape[0]))
+    recall_score = np.zeros((num_classes_dimension, threshold_array.shape[0]))
+    accuracy_score = np.zeros((num_classes_dimension, threshold_array.shape[0]))
     
     for i in range(threshold_array.shape[0]):
         threshold_prediction = np.log(threshold_array[i]) - np.log(1 - threshold_array[i])

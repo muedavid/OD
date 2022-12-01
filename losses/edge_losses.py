@@ -9,6 +9,7 @@ class WeightedMultiLabelSigmoidLoss(tf.keras.losses.Loss):
         self.max_edge_loss_weighting = max_edge_loss_weighting
         self.class_individually_weighted = class_individually_weighted
     
+    @tf.function
     def call(self, y_true, y_pred):
         dtype = tf.float32
         
@@ -57,6 +58,7 @@ class FocalLossEdges(tf.keras.losses.Loss):
         self.edge_loss_weighting = edge_loss_weighting
         self.power = power
     
+    @tf.function
     def call(self, y_true, y_pred):
         dtype = tf.float32
         power = tf.cast(self.power, dtype=dtype)
