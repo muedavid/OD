@@ -1,5 +1,5 @@
 TRAIN_MODEL: true
-EPOCHS: 60
+EPOCHS: 80
 
 NAME: edge_detection_without_prior
 SAVE: true
@@ -12,7 +12,6 @@ CONVERT_TO_TFLITE: true
 # Model type: defines the task which is solved by the model ['edge detector']
 MODEL:
   TYPE: 'edge detector'
-  ARCHITECTURE: 'SGED'
   DILATION: false
 
 BACKBONE:

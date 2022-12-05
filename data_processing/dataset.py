@@ -129,11 +129,10 @@ class DataProcessing:
             mask_path = tf.strings.join([mask_base_path, sep_str, img_idx_str, end_str])
             mask_input = tf.io.read_file(mask_path)
             mask_input = tf.image.decode_png(mask_input, channels=3)
-            for inp in self.inputs:
-                if self.cfg['in'][inp]:
-                    idx = self.ds_inf[ds_type]['info']['mask'][inp]
-                    mask = mask_input[:, :, idx:idx + 1]
-                    dataset_dict['in_' + inp] = self.preprocess_mask(mask, ds_type, inp)
+            for mask_type in self.inputs:
+                idx = self.ds_inf[ds_type]['info']['mask'][mask_type]
+                mask = mask_input[:, :, idx:idx + 1]
+                dataset_dict['in_' + mask_type] = self.preprocess_mask(mask, ds_type, mask_type)
     
             # mask output:
             mask_base_path = tf.constant(self.paths[ds_type]['ANN'], dtype=tf.string)
@@ -141,10 +140,10 @@ class DataProcessing:
             mask_output = tf.io.read_file(mask_path)
             mask_output = tf.image.decode_png(mask_output, channels=3)
             # unrolled for loop, execute for each statement individually and also if statements (python side effect)
-            for out in self.outputs_ann:
-                idx = self.ds_inf[ds_type]['info']['mask'][out]
+            for mask_type in self.outputs_ann:
+                idx = self.ds_inf[ds_type]['info']['mask'][mask_type]
                 mask = mask_output[:, :, idx:idx + 1]
-                dataset_dict['out_' + out] = self.preprocess_mask(mask, ds_type, out)
+                dataset_dict['out_' + mask_type] = self.preprocess_mask(mask, ds_type, mask_type)
 
         return dataset_dict
 
@@ -218,8 +217,6 @@ class DataProcessing:
         for c in candidates:
             if self.cfg['in'][c]:
                 self.inputs.append(c)
-        candidates = ['edge', 'vert', 'cont']
-        for c in candidates:
             if self.cfg['out'][c]:
                 self.outputs_ann.append(c)
 

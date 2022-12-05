@@ -1,9 +1,12 @@
 from tensorflow import keras
-from numpy import array
+from numpy import array, log2
 from models.network_elements import utils
 
+
 def get_backbone(name="MobileNetV2", weights="imagenet", input_shape=(640, 360, 3), alpha=1,
-                 output_layer=[1, 2, 3], trainable_idx=None):
+                 output_layer=None, trainable_idx=None):
+    if output_layer is None:
+        output_layer = [0, 1, 2]
     include_top = False
     if name == 'RESNet101':
         base_model = keras.applications.resnet.ResNet101(include_top=include_top, weights=weights,
@@ -79,3 +82,17 @@ def residual_block_resnet(x, num_input_filter, name='residual_block', filter_mul
                                 name=name + '_3')
     
     return keras.layers.Add(name=name + '_out')([x, residual])
+
+
+def edge_map_preprocessing(input_layer, input_shape, output_shape, num_filters):
+    
+    x = utils.convolution_block(input_layer, num_filters=num_filters, use_bias=True, name="edge_map_processing_1")
+    output_edge_map_1 = utils.convolution_block(x, num_filters=num_filters, use_bias=True, name="edge_map_processing_2")
+    
+    down_sampling = int(log2(input_shape[0]/output_shape[0]).tolist())
+    if down_sampling % 1 != 0.0:
+        raise ValueError("input shape of the edge map must be exact dividable by the output shape of the backbone")
+    for i in range(down_sampling):
+        x = utils.convolution_block(x, num_filters=num_filters, kernel_size=3, strides=2, use_bias=True,
+                                    name="edge_map_down_sampling_{}".format(i))
+    return output_edge_map_1, x

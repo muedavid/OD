@@ -9,6 +9,7 @@ from utils import tools
 from tflite_support.metadata_writers import image_segmenter
 from tflite_support.metadata_writers import writer_utils
 
+
 class Model:
     custom_objects = dict()
     train_model = False
@@ -36,7 +37,7 @@ class Model:
         print(self.Data.get_model_path_max_f1())
         model = tf.keras.models.load_model(self.Data.get_model_path_max_f1(),
                                            custom_objects=self.custom_objects, compile=False)
-
+        
         if self.cfg['SAVE']:
             model.save(self.Data.paths["MODEL"])
             model.trainable = False
@@ -122,24 +123,21 @@ class Model:
         for name, label in self.cfg['CATEGORIES'].items():
             labels.append({'name': name, 'id': label})
         sorted_labels = sorted(labels, key=lambda d: d['id'])
-
+        
         with open(self.Data.files['OUTPUT_TFLITE_LABEL_MAP'], 'w') as f:
             for label in sorted_labels:
                 name = label['name']
                 f.write(name + '\n')
-        
+    
     def convert_model_to_tflite_image_segmenter(self):
-        
-        ImageSegmenterWriter = image_segmenter.MetadataWriter
+        image_segmenter_writer = image_segmenter.MetadataWriter
         _MODEL_PATH = self.Data.files['OUTPUT_TFLITE_MODEL']
         _SAVE_TO_PATH = self.Data.files['OUTPUT_TFLITE_MODEL_METADATA']
         _INPUT_NORM_MEAN = 0
         _INPUT_NORM_STD = 1
         _LABEL_FILE = self.Data.files['OUTPUT_TFLITE_LABEL_MAP']
-        writer = ImageSegmenterWriter.create_for_inference(writer_utils.load_file(_MODEL_PATH), [_INPUT_NORM_MEAN],
-                                                           [_INPUT_NORM_STD], [_LABEL_FILE])
-
+        writer = image_segmenter_writer.create_for_inference(writer_utils.load_file(_MODEL_PATH), [_INPUT_NORM_MEAN],
+                                                             [_INPUT_NORM_STD], [_LABEL_FILE])
+        
         # Populate the metadata into the model.
         writer_utils.save_file(writer.populate(), _SAVE_TO_PATH)
-
-        

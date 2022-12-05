@@ -26,8 +26,9 @@ def shared_concatenation_and_classification(decoder_output, side_outputs, num_cl
         for j in range(len(side_outputs)):
             shared_concat.append(side_outputs[j])
         
-        concatenated_layers = tf.keras.layers.Concatenate(axis=-1)(shared_concat)
-        x = convolution_block(concatenated_layers, num_filters=num_filters, kernel_size=3, name='out_{}'.format(i))
+        # TODO try to add one more skip connection to output with shared concat
+        concatenated_layers_1 = tf.keras.layers.Concatenate(axis=-1)(shared_concat)
+        x = convolution_block(concatenated_layers_1, num_filters=num_filters, kernel_size=3, seperable=True, name='out_{}'.format(i))
         
         if num_classes == 1:
             convolved_layers = tf.keras.layers.Conv2D(filters=1, kernel_size=1, name=name)(x)

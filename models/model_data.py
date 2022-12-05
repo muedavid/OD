@@ -21,7 +21,7 @@ class ModelData:
         self.paths = {
             'MODEL': osp.join(base_path_model, data, model) if data_model_loaded is None else osp.join(base_path_model,
                                                                                                        data_model_loaded,
-                                                                                           model),
+                                                                                                       model),
             'CKPT': osp.join(base_path_model, data, model, 'CKPT') if data_model_loaded is None else osp.join(
                 base_path_model, data_model_loaded, model, 'CKPT'),
             'TBLOGS': osp.join(base_path_model, data, model, 'logs') if data_model_loaded is None else osp.join(

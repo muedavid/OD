@@ -2,7 +2,7 @@ import tensorflow as tf
 from models.network_elements import utils
 
 
-def SGED_decoder(decoder_input, side, output_dims, num_filters=15, num_output_filters=10):
+def sged_decoder(decoder_input, side, output_dims, num_filters=15, num_output_filters=10):
     x = tf.image.resize(decoder_input, (side.shape[1], side.shape[2]))
     
     side = utils.convolution_block(side, num_filters=int(num_filters / 4), kernel_size=1, dilation_rate=1,
@@ -26,7 +26,7 @@ def SGED_decoder(decoder_input, side, output_dims, num_filters=15, num_output_fi
     return x
 
 
-def SGED_side_feature(x, output_dims, num_filters, method="bilinear", name=None):
+def sged_side_feature(x, output_dims, num_filters, method="bilinear", name=None):
     x = utils.convolution_block(x, num_filters=num_filters, kernel_size=3, dilation_rate=1, BN=True, RELU=True,
                                 name=name + "_1_conv3x3")
     x = utils.convolution_block(x, num_filters=num_filters, kernel_size=3, dilation_rate=1, BN=True, RELU=True,
