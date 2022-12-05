@@ -52,7 +52,7 @@ class EdgeDetector:
         side_outputs = [side_output_1, side_output_2]
         
         output = utils.shared_concatenation_and_classification(decoder_output, side_outputs, self.num_classes,
-                                                               num_filters=output_filter_mult, name="out_edge")
+                                                               num_filters=output_filter_mult*self.num_classes, name="out_edge")
         model = keras.Model(inputs=backbone.input, outputs=output)
         
         return model
@@ -78,7 +78,7 @@ class EdgeDetector:
                                                                  backbone.output[-1].shape[1:],
                                                                  num_filters)
         
-        x = pyramid_modules.concatenate_edge_and_image(backbone.output[-1], edge_map_preprocessor[-1],
+        x, mult = pyramid_modules.concatenate_edge_and_image(backbone.output[-1], edge_map_preprocessor[-1],
                                                        num_classes=self.num_classes,
                                                        filter_mult=inside_model_filter_mult)
         
@@ -94,10 +94,10 @@ class EdgeDetector:
         side_edge = decoders.sged_side_feature(edge_map_preprocessor[0], output_dims=self.cfg["OUTPUT_SHAPE"],
                                                num_filters=num_filters, method="bilinear", name="edge_side")
         
-        side_outputs = [side_output_1, side_output_2, side_edge]
+        side_outputs = [side_output_1, side_output_2]
         
         output = utils.shared_concatenation_and_classification(decoder_output, side_outputs, self.num_classes,
-                                                               num_filters=output_filter_mult, name="out_edge")
-        model = keras.Model(inputs=[backbone.input, input_model], outputs=output)
+                                                               num_filters=num_filters, name="out_edge")
+        model = keras.Model(inputs=[backbone.input, input_model], outputs=[output, mult])
         
         return model

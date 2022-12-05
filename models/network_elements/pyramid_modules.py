@@ -111,11 +111,13 @@ def concatenate_edge_and_image(image_layer, edge_layer, num_classes, filter_mult
     
     image_layer_mult = utils.convolution_block(image_layer, num_filters=num_classes, kernel_size=3, seperable=True,
                                                name='image_preprocessing_before_multiplication')
-    edge_layer_mult = utils.convolution_block(image_layer, num_filters=num_classes, kernel_size=3, seperable=True,
-                                              name='edge_preprocessing_before_multiplication')
+    edge_layer_mult_1 = utils.convolution_block(edge_layer, num_filters=6, kernel_size=5, seperable=True,
+                                                name='edge_preprocessing_before_multiplication_1')
+    edge_layer_mult_2 = utils.convolution_block(edge_layer_mult_1, num_filters=6, kernel_size=5, seperable=True,
+                                                name='edge_preprocessing_before_multiplication_2')
     out = []
-    for i in range(num_classes):
-        edge = tf.slice(edge_layer_mult, begin=[0, 0, 0, i], size=[-1, -1, -1, 1], name='edge_layer_{}'.format(i))
+    for i in range(6):
+        edge = tf.slice(edge_layer_mult_2, begin=[0, 0, 0, i], size=[-1, -1, -1, 1], name='edge_layer_{}'.format(i))
         out.append(tf.multiply(image_layer_mult, edge, name='multiplication_{}'.format(i)))
     mult = tf.keras.layers.Concatenate(axis=-1)(out)
     mult = tf.keras.layers.DepthwiseConv2D(kernel_size=3, dilation_rate=1, padding="same", strides=1, use_bias=False,
@@ -127,4 +129,4 @@ def concatenate_edge_and_image(image_layer, edge_layer, num_classes, filter_mult
     x = utils.convolution_block(concat, num_filters=num_filters, kernel_size=3, name="concat_1")
     x = utils.convolution_block(x, num_filters=num_filters, kernel_size=3, name="concat_2", seperable=True)
     
-    return x
+    return x, edge_layer_mult_2

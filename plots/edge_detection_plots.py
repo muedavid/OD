@@ -4,7 +4,8 @@ import numpy as np
 from metrics import metrics
 
 
-def plot_edges(images=None, labels=None, predictions=None, save=False, path=None, batch_size=0, num_exp=None,
+def plot_edges(images=None, prior=None, labels=None, predictions=None, save=False, path=None, batch_size=0,
+               num_exp=None,
                num_classes=0):
     # TODO: think about plotting output after sigmoid as values are more meaningfull and scale too.
     
@@ -13,7 +14,7 @@ def plot_edges(images=None, labels=None, predictions=None, save=False, path=None
     else:
         num_exp = batch_size
     
-    rows = 1 + (labels is not None) + num_classes * (predictions is not None)
+    rows = 1 + (prior is not None) + (labels is not None) + num_classes * (predictions is not None)
     cols = num_exp
     plt.figure(figsize=(8 * cols, 8 * rows))
     for i in range(num_exp):
@@ -21,16 +22,21 @@ def plot_edges(images=None, labels=None, predictions=None, save=False, path=None
         plt.title("Images")
         plt.imshow(tf.keras.preprocessing.image.array_to_img(images[i, :, :, :]))
         plt.axis('off')
-        if labels is not None:
+        if prior is not None:
             plt.subplot(rows, num_exp, num_exp + i + 1)
+            plt.title("Prior Edge Maps")
+            plt.imshow(prior[i, :, :, 0], cmap='gray', vmin=0, vmax=num_classes)
+            plt.axis('off')
+        if labels is not None:
+            plt.subplot(rows, num_exp, (1 + (prior is not None)) * num_exp + i + 1)
             plt.title("Ground Truth")
             plt.imshow(labels[i, :, :, 0], cmap='gray', vmin=0, vmax=num_classes)
             plt.axis('off')
         if predictions is not None:
             for j in range(num_classes):
-                plt.subplot(rows, num_exp, (1 + (labels is not None) + j) * num_exp + i + 1)
+                plt.subplot(rows, num_exp, (1 + (prior is not None) + (labels is not None) + j) * num_exp + i + 1)
                 plt.title("Estimation of class: {}".format(j + 1))
-                plt.imshow(predictions[i, :, :, j], cmap='gray', vmin=-5, vmax=5)
+                plt.imshow(predictions[i, :, :, j], cmap='gray', vmin=-2, vmax=2)
                 plt.axis('off')
     
     if save:
@@ -109,8 +115,8 @@ def plot_threshold_metrics_evaluation(model, ds, num_classes, classes_displayed_
     accuracy_plot.set_xlim([0, 1])
     for j in range(num_classes_dimension):
         idx = j + 1
-        row = int(idx/max_plots_for_each_row)
-        plot = plt.subplot2grid(shape=shape, loc=(row, idx - row*max_plots_for_each_row))
+        row = int(idx / max_plots_for_each_row)
+        plot = plt.subplot2grid(shape=shape, loc=(row, idx - row * max_plots_for_each_row))
         plot.plot(threshold_array, f1_score[j, :], label="F1")
         plot.plot(threshold_array, precision_score[j, :], label="Precision")
         plot.plot(threshold_array, recall_score[j, :], label="Recall")

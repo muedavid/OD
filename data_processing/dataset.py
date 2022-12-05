@@ -161,6 +161,8 @@ class DataProcessing:
             mask = tf.cast(mask, tf.uint8)
 
             self.num_classes[mask_type] = len(self.ds_inf[ds_type]["cat2obj"])
+            
+            
         else:
             if mask_type == 'VERT':
                 self.num_classes[mask_type] = len(self.ds_inf[ds_type]["vert2obj"])
