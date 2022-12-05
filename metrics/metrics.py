@@ -33,9 +33,8 @@ def number_true_false_positive_negative(y_true, y_prediction, threshold_edge_wid
     return number_true_positive, number_false_positive, number_true_negative, number_false_negative
 
 
-# thresholdPrediction = 0, as computed directly without taking sigmoid, else 0.5
 class BinaryAccuracyEdges(tf.keras.metrics.Metric):
-    def __init__(self, num_classes, classes_individually=False, name="accuracy_edges", threshold_prediction=0, **kwargs):
+    def __init__(self, num_classes, classes_individually=False, name="accuracy_edges", threshold_prediction=0.5, **kwargs):
         super(BinaryAccuracyEdges, self).__init__(name=name, **kwargs)
         self.numberTruePredictedPixels = self.add_weight(name="numberTruePredictedPixels", initializer="zeros",
                                                          shape=(num_classes,))
@@ -48,11 +47,7 @@ class BinaryAccuracyEdges(tf.keras.metrics.Metric):
     def update_state(self, y_true, y_pred, sample_weight=None):
         threshold_prediction = tf.cast(self.thresholdPrediction, y_pred.dtype)
         y_pred = tf.cast(y_pred > threshold_prediction, tf.int32)
-        
         y_true = tf.cast(y_true, dtype=tf.int32)
-        range_classes = tf.range(1, y_pred.shape[-1] + 1)
-        range_classes_reshape = tf.reshape(range_classes, [1, 1, 1, y_pred.shape[-1]])
-        y_true = tf.cast(range_classes_reshape == y_true, dtype=tf.int32)
         
         number_true_predicted = tf.cast(tf.reduce_sum(tf.cast(y_true == y_pred, dtype=tf.int32),
                                                       axis=[0, 1, 2]), dtype=tf.float32)
@@ -87,7 +82,7 @@ class BinaryAccuracyEdges(tf.keras.metrics.Metric):
 
 
 class F1Edges(tf.keras.metrics.Metric):
-    def __init__(self, num_classes, classes_individually=False, threshold_prediction=0,
+    def __init__(self, num_classes, classes_individually=False, threshold_prediction=0.5,
                  threshold_edge_width=0, name="f1_edges", **kwargs):
         super(F1Edges, self).__init__(name=name, **kwargs)
         
@@ -107,12 +102,7 @@ class F1Edges(tf.keras.metrics.Metric):
     def update_state(self, y_true, y_pred, sample_weight=None):
         threshold_prediction = tf.cast(self.thresholdPrediction, y_pred.dtype)
         y_pred = tf.cast(y_pred > threshold_prediction, tf.int32)
-        
-        # reshape y_true: channels = number of classes and binary classification of edge and nonedge
         y_true = tf.cast(y_true, dtype=tf.int32)
-        class_range = tf.range(1, y_pred.shape[-1] + 1)
-        class_range_reshape = tf.reshape(class_range, [1, 1, 1, y_pred.shape[-1]])
-        y_true = tf.cast(class_range_reshape == y_true, dtype=tf.int32)
         
         number_true_positive, number_false_positive, number_true_negative, number_false_negative = number_true_false_positive_negative(
             y_true, y_pred, self.thresholdEdgeWidth)

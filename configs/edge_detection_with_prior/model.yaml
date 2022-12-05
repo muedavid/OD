@@ -1,5 +1,5 @@
 TRAIN_MODEL: true
-EPOCHS: 10
+EPOCHS: 20
 
 NAME: edge_detection_with_prior
 SAVE: true

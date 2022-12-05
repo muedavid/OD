@@ -40,6 +40,7 @@ TEST:
 
 TRAIN:
   NAME: Train
+  # MAX_IMG: 1500
   MAX_IMG: 1500
 
   BATCH_SIZE: 3

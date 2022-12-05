@@ -63,7 +63,7 @@ class EdgeDetector:
         num_filters = self.num_classes * inside_model_filter_mult
         
         input_shape = (self.cfg["INPUT_SHAPE"][0], self.cfg["INPUT_SHAPE"][1], 3)
-        input_edge_shape = (self.cfg["OUTPUT_SHAPE"][0], self.cfg["OUTPUT_SHAPE"][1], 1)
+        input_edge_shape = (self.cfg["OUTPUT_SHAPE"][0], self.cfg["OUTPUT_SHAPE"][1], self.num_classes)
         
         print(input_shape)
         backbone, output_names = backbones.get_backbone(name=self.cfg["BACKBONE"]["NAME"],

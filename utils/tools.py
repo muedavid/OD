@@ -22,6 +22,13 @@ def predict_class_postprocessing(prediction, threshold=0.5):
     return predictions
 
 
+def squeeze_labels_to_single_dimension(mask):
+    pad = tf.constant([[0, 0], [0, 0], [0, 0], [1, 0]])
+    mask = tf.pad(mask, pad, "CONSTANT")
+    mask = tf.math.argmax(mask, axis=-1, output_type=tf.int32)
+    mask = tf.expand_dims(mask, axis=-1)
+    return mask
+
 def parser(cfg, cfg_data):
 
     file_name = None

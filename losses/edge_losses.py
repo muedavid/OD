@@ -16,10 +16,7 @@ class WeightedMultiLabelSigmoidLoss(tf.keras.losses.Loss):
         min_edge_loss_weighting = tf.cast(self.min_edge_loss_weighting, dtype=dtype)
         max_edge_loss_weighting = tf.cast(self.max_edge_loss_weighting, dtype=dtype)
         
-        # Transform y_true to Tensor
-        range_reshape = tf.reshape(tf.range(1, y_pred.shape[-1] + 1), [1, 1, 1, y_pred.shape[-1]])
-        y_true = tf.cast(y_true, dtype=tf.int32)
-        y_true = tf.cast(range_reshape == y_true, dtype=tf.float32)
+        y_true = tf.cast(y_true, dtype=dtype)
         
         # Compute Beta
         if self.class_individually_weighted:
@@ -39,7 +36,7 @@ class WeightedMultiLabelSigmoidLoss(tf.keras.losses.Loss):
         y_true = tf.cast(y_true, dtype)
         y_prediction = tf.cast(y_pred, dtype)
         one = tf.constant(1.0, dtype=dtype)
-        one_sig_out = tf.sigmoid(y_prediction)
+        one_sig_out = y_prediction
         zero_sig_out = one - one_sig_out
         
         loss = -edge_loss_weighting * y_true * tf.math.log(tf.clip_by_value(one_sig_out, 1e-10, 1000)) - (
@@ -62,15 +59,10 @@ class FocalLossEdges(tf.keras.losses.Loss):
     def call(self, y_true, y_pred):
         dtype = tf.float32
         power = tf.cast(self.power, dtype=dtype)
-        
-        # Transform y_true to Tensor
-        range_reshape = tf.reshape(tf.range(1, y_pred.shape[-1] + 1), [1, 1, 1, y_pred.shape[-1]])
-        range_reshape = tf.cast(range_reshape, dtype=dtype)
         y_true = tf.cast(y_true, dtype=dtype)
-        y_true = tf.cast(range_reshape == y_true, dtype=dtype)
         
         one = tf.constant(1.0, dtype=tf.float32)
-        one_sig_out = tf.sigmoid(y_pred)
+        one_sig_out = y_pred
         zero_sig_out = one - one_sig_out
         
         if self.edge_loss_weighting:
@@ -99,9 +91,7 @@ class FocalLossEdges(tf.keras.losses.Loss):
 
 def weighted_multi_label_sigmoid_loss_alternative_implementation(y_true, y_prediction):
     # Transform y_true to Tensor
-    y_true = tf.cast(y_true, dtype=tf.int32)
-    range_reshape = tf.reshape(tf.range(1, y_prediction.shape[-1] + 1), [1, 1, 1, y_prediction.shape[-1]])
-    y_true = tf.cast(range_reshape == y_true, dtype=tf.float32)
+    y_true = tf.cast(y_true, dtype=tf.float32)
     
     # compute weights
     num_edge_pixel = tf.reduce_sum(y_true, axis=[1, 2, 3], keepdims=True)

@@ -36,4 +36,6 @@ def shared_concatenation_and_classification(decoder_output, side_outputs, num_cl
         else:
             convolved_layers = tf.keras.layers.Conv2D(filters=1, kernel_size=1)(x)
             out.append(convolved_layers)
-    return tf.keras.layers.Concatenate(axis=-1, name=name)(out)
+
+    output = tf.keras.layers.Concatenate(axis=-1, name='output_concatenation')(out)
+    return tf.keras.layers.Activation(activation='sigmoid', name=name)(output)
