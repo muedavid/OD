@@ -1,5 +1,5 @@
 TRAIN_MODEL: true
-EPOCHS: 60
+EPOCHS: 10
 
 NAME: edge_detection_with_prior
 SAVE: true
@@ -37,9 +37,9 @@ LOSS:
     focal:
       apply: true
       edge_loss_weighting: true
-      min_edge_loss_weighting: 0.3
-      max_edge_loss_weighting: 0.7
-      power: 3.0
+      min_edge_loss_weighting: 0.2
+      max_edge_loss_weighting: 0.8
+      power: 2.0
   vert: null
   cont: null
   flow_edge: null
