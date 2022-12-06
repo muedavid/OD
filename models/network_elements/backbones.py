@@ -1,4 +1,5 @@
 from tensorflow import keras
+import tensorflow as tf
 from numpy import array, log2
 from models.network_elements import utils
 
@@ -84,15 +85,76 @@ def residual_block_resnet(x, num_input_filter, name='residual_block', filter_mul
     return keras.layers.Add(name=name + '_out')([x, residual])
 
 
-def edge_map_preprocessing(input_layer, input_shape, output_shape, num_filters):
+def edge_map_preprocessing_3D(input_layer, image_layer, output_shape, num_classes):
+    # for 3D convolution such that each channel has same filter
+    x = tf.expand_dims(input_layer, axis=-1)
     
-    x = utils.convolution_block(input_layer, num_filters=num_filters, use_bias=True, name="edge_map_processing_1")
-    output_edge_map_1 = utils.convolution_block(x, num_filters=num_filters, use_bias=True, name="edge_map_processing_2")
+    x = tf.keras.layers.Conv3D(3, kernel_size=(3, 3, 1), dilation_rate=1, padding='same',
+                               strides=1, use_bias=False, name='edge_input_1_conv')(x)
+    x = tf.keras.layers.Conv3D(9, kernel_size=(5, 5, 1), dilation_rate=1, padding='same',
+                               strides=(2, 2, 1), use_bias=False, name='edge_input_2_conv')(x)
+    x = tf.keras.layers.Activation(activation='sigmoid')(x)
     
-    down_sampling = int(log2(input_shape[0]/output_shape[0]).tolist())
+    image_layer = utils.convolution_block(image_layer, num_filters=num_classes, RELU=False,
+                                          name='backbone_output_for_edge')
+    image_layer = tf.keras.layers.Activation(activation='sigmoid')(image_layer)
+    image_layer = tf.expand_dims(image_layer, axis=-1)
+    x = tf.keras.layers.Concatenate(axis=-1)([x, image_layer])
+    
+    x = tf.keras.layers.Conv3D(3, kernel_size=(5, 5, 1), dilation_rate=1, padding='same',
+                               strides=(2, 2, 1), use_bias=False, name='edge_image_1_conv')(x)
+    x = tf.keras.layers.BatchNormalization(name='edge_image_1_bn')(x)
+    x = tf.keras.layers.ReLU(name='edge_image_1_relu')(x)
+    
+    x = tf.keras.layers.Conv3D(3, kernel_size=(5, 5, 1), dilation_rate=1, padding='same',
+                               strides=(1, 1, 1), use_bias=True, name='edge_image_2_conv')(x)
+    x = tf.keras.layers.BatchNormalization(name='edge_image_2_bn')(x)
+    x = tf.keras.layers.ReLU(name='edge_image_2_relu')(x)
+    
+    down_sampling = int(log2(x.shape[1] / output_shape[0]).tolist())
     if down_sampling % 1 != 0.0:
         raise ValueError("input shape of the edge map must be exact dividable by the output shape of the backbone")
     for i in range(down_sampling):
-        x = utils.convolution_block(x, num_filters=num_filters, kernel_size=3, strides=2, use_bias=True,
+        x = tf.keras.layers.Conv3D(3, kernel_size=(3, 3, 1), dilation_rate=1, padding='same',
+                                   strides=(2, 2, 1), use_bias=True, name="edge_map_down_sampling_{}".format(i))(x)
+    
+    x = tf.keras.layers.Conv3D(1, kernel_size=(5, 5, 1), dilation_rate=1, padding='same',
+                               strides=(1, 1, 1), use_bias=True, name='edge_backbone_out_conv')(x)
+    x = tf.squeeze(x, axis=-1)
+    x = tf.keras.layers.Activation(activation='sigmoid', name='edge_backbone_out_sigmoid')(x)
+    return x
+
+
+def edge_map_preprocessing(input_layer, image_layer, output_shape, num_classes):
+    edge_map_1 = utils.convolution_block(input_layer, num_filters=num_classes, use_bias=True,
+                                         name="edge_map_processing_1")
+    edge_map_2 = utils.convolution_block(edge_map_1, kernel_size=3, num_filters=num_classes, use_bias=True, strides=2,
+                                         name="edge_map_processing_2")
+    edge_map_3 = utils.convolution_block(edge_map_2, kernel_size=5, num_filters=num_classes, use_bias=True, strides=2,
+                                         name="edge_map_processing_3")
+    # edge_map_4 = utils.convolution_block(edge_map_3, kernel_size=3, num_filters=num_classes, use_bias=True, strides=2,
+    #                                      separable=True, name="edge_map_processing_4")
+    #
+    # image_layer = utils.convolution_block(image_layer, num_filters=2, RELU=True, BN=True,
+    #                                       name='backbone_output_for_edge')
+    # x = tf.keras.layers.Concatenate(axis=-1)([edge_map_3, image_layer])
+    #
+    # edge_image_1 = utils.convolution_block(x, kernel_size=3, num_filters=num_classes, use_bias=True, strides=1,
+    #                                        name="edge_image_1")
+    
+    # edge_image_2 = utils.convolution_block(edge_image_1, kernel_size=3, num_filters=num_classes, use_bias=True, strides=2,
+    #                                        separable=True, name="edge_image_2")
+    # x = tf.keras.layers.Concatenate(axis=-1)([edge_map_4, edge_image_2])
+    #
+    # x = utils.convolution_block(x, kernel_size=3, num_filters=num_classes, use_bias=True, strides=1,
+    #                             separable=True, name="edge_image_3")
+    x = utils.convolution_block(edge_map_3, kernel_size=5, num_filters=num_classes, use_bias=True, strides=1,
+                                name="edge_image_3")
+    
+    down_sampling = int(log2(x.shape[1] / output_shape[0]).tolist())
+    if down_sampling % 1 != 0.0:
+        raise ValueError("input shape of the edge map must be exact dividable by the output shape of the backbone")
+    for i in range(down_sampling):
+        x = utils.convolution_block(x, num_filters=num_classes, separable=True, strides=2,
                                     name="edge_map_down_sampling_{}".format(i))
-    return output_edge_map_1, x
+    return x

@@ -4,7 +4,7 @@ from models.network_elements import utils
 
 def pyramid_module(pyramid_input, num_filters=12):
     x = utils.convolution_block(pyramid_input, num_filters, kernel_size=3, dilation_rate=1, strides=2,
-                                seperable=True)
+                                separable=True)
     
     dims = x.shape
     
@@ -30,7 +30,7 @@ def pyramid_module(pyramid_input, num_filters=12):
 
 def daspp_efficient(daspp_input, num_filters=12):
     daspp_input = utils.convolution_block(daspp_input, num_filters, kernel_size=3, dilation_rate=1, strides=2,
-                                          seperable=True)
+                                          separable=True)
     
     dims = daspp_input.shape
     
@@ -70,20 +70,20 @@ def daspp(daspp_input, num_filters=12):
     out_1 = utils.convolution_block(daspp_input, num_filters=num_filters, kernel_size=3, dilation_rate=1, BN=True,
                                     RELU=True, name="daspp_1")
     out_3 = utils.convolution_block(daspp_input, num_filters=num_filters, kernel_size=3, dilation_rate=3,
-                                    seperable=True, BN=True, RELU=True, name="daspp_3_dilated")
-    out_3 = utils.convolution_block(out_3, num_filters=num_filters, kernel_size=3, dilation_rate=1, seperable=True,
+                                    separable=True, BN=True, RELU=True, name="daspp_3_dilated")
+    out_3 = utils.convolution_block(out_3, num_filters=num_filters, kernel_size=3, dilation_rate=1, separable=True,
                                     BN=True, RELU=True, name="daspp_3_conv")
     out_6 = utils.convolution_block(daspp_input, num_filters=num_filters, kernel_size=3, dilation_rate=6,
-                                    seperable=True, BN=True, RELU=True, name="daspp_6_dilated")
-    out_6 = utils.convolution_block(out_6, num_filters=num_filters, kernel_size=3, dilation_rate=1, seperable=True,
+                                    separable=True, BN=True, RELU=True, name="daspp_6_dilated")
+    out_6 = utils.convolution_block(out_6, num_filters=num_filters, kernel_size=3, dilation_rate=1, separable=True,
                                     BN=True, RELU=True, name="daspp_6_conv")
     out_9 = utils.convolution_block(daspp_input, num_filters=num_filters, kernel_size=3, dilation_rate=9,
-                                    seperable=True, BN=True, RELU=True, name="daspp_9_dilated")
-    out_9 = utils.convolution_block(out_9, num_filters=num_filters, kernel_size=3, dilation_rate=1, seperable=True,
+                                    separable=True, BN=True, RELU=True, name="daspp_9_dilated")
+    out_9 = utils.convolution_block(out_9, num_filters=num_filters, kernel_size=3, dilation_rate=1, separable=True,
                                     BN=True, RELU=True, name="daspp_9_conv")
-    out_18 = utils.convolution_block(daspp_input, kernel_size=3, dilation_rate=18, seperable=True, BN=True, RELU=True,
+    out_18 = utils.convolution_block(daspp_input, kernel_size=3, dilation_rate=18, separable=True, BN=True, RELU=True,
                                      name="daspp_18_dilated")
-    out_18 = utils.convolution_block(out_18, kernel_size=3, dilation_rate=1, seperable=True, BN=True, RELU=True,
+    out_18 = utils.convolution_block(out_18, kernel_size=3, dilation_rate=1, separable=True, BN=True, RELU=True,
                                      name="daspp_18_conv")
     
     out = tf.keras.layers.GlobalAveragePooling2D(keepdims=True)(daspp_input)
@@ -99,34 +99,45 @@ def daspp(daspp_input, num_filters=12):
 
 
 def concatenate_edge_and_image(image_layer, edge_layer, num_classes, filter_mult):
+    num_mult_filter = num_classes
     num_filters = num_classes * filter_mult
     
-    image_layer_concat = utils.convolution_block(image_layer, num_filters=num_filters, kernel_size=3, seperable=True,
+    image_layer_concat = utils.convolution_block(image_layer, num_filters=num_filters, kernel_size=3,
                                                  name='image_preprocessing_before_concatenation')
+    edge_layer_concat = utils.convolution_block(edge_layer, num_filters=num_filters, kernel_size=3,
+                                                name="edge_before_concatenated_1")
+    image_edge_concat = tf.keras.layers.Concatenate(axis=-1)([image_layer_concat, edge_layer_concat])
+    image_edge_concat = utils.convolution_block(image_edge_concat, num_filters=num_filters, kernel_size=3,
+                                                name="image_edge_concatenated_1")
+    image_edge_concat = utils.convolution_block(image_edge_concat, num_filters=num_filters, kernel_size=3, RELU=False,
+                                                separable=True, name="image_edge_concatenated_2")
     
-    x = tf.keras.layers.Concatenate(axis=-1)([image_layer_concat, edge_layer])
-    x = utils.convolution_block(x, num_filters=num_filters, kernel_size=3, name="image_edge_concatenated_1")
-    image_edge_concat = utils.convolution_block(x, num_filters=num_filters, kernel_size=3,
-                                                name="image_edge_concatenated_2")
+    image_layer_mult_1 = utils.convolution_block(image_layer, num_filters=num_filters, kernel_size=3, separable=True,
+                                                 name='image_preprocessing_before_multiplication_1')
+    image_layer_mult_2 = utils.convolution_block(image_layer_mult_1, num_filters=num_filters, kernel_size=3, RELU=False,
+                                                 separable=True, use_bias=True, name='image_preprocessing_before_multiplication_2')
+    image_layer_mult_2 = tf.keras.layers.Activation(activation='sigmoid')(image_layer_mult_2)
     
-    image_layer_mult = utils.convolution_block(image_layer, num_filters=num_classes, kernel_size=3, seperable=True,
-                                               name='image_preprocessing_before_multiplication')
-    edge_layer_mult_1 = utils.convolution_block(edge_layer, num_filters=6, kernel_size=5, seperable=True,
-                                                name='edge_preprocessing_before_multiplication_1')
-    edge_layer_mult_2 = utils.convolution_block(edge_layer_mult_1, num_filters=6, kernel_size=5, seperable=True,
-                                                name='edge_preprocessing_before_multiplication_2')
+    edge_layer_mult_1 = utils.convolution_block(edge_layer, num_filters=num_mult_filter, kernel_size=5,
+                                                separable=True, name='edge_layer_mult_1')
+    edge_layer_mult_2 = utils.convolution_block(edge_layer_mult_1, num_filters=num_mult_filter, kernel_size=9, RELU=False,
+                                                separable=True, name='edge_layer_mult_2')
+    edge_layer_mult_2 = tf.keras.layers.Activation(activation='sigmoid', name='sigmoid_activation')(edge_layer_mult_2)
+    
     out = []
-    for i in range(6):
-        edge = tf.slice(edge_layer_mult_2, begin=[0, 0, 0, i], size=[-1, -1, -1, 1], name='edge_layer_{}'.format(i))
-        out.append(tf.multiply(image_layer_mult, edge, name='multiplication_{}'.format(i)))
-    mult = tf.keras.layers.Concatenate(axis=-1)(out)
-    mult = tf.keras.layers.DepthwiseConv2D(kernel_size=3, dilation_rate=1, padding="same", strides=1, use_bias=False,
-                                           name="post_processing_multiplication_1")(mult)
-    mult = utils.convolution_block(mult, num_filters=num_filters, seperable=True,
-                                   name="post_processing_multiplication_2")
+    for i in range(num_mult_filter):
+        edge = tf.slice(edge_layer_mult_2, begin=[0, 0, 0, i], size=[-1, -1, -1, 1],
+                        name='edge_layer_{}'.format(i))
+        edge = tf.multiply(image_layer_mult_2, edge, name='multiplication_{}'.format(i))
+        out.append(edge)
+    mult_1 = tf.keras.layers.Concatenate(axis=-1)(out)
+    mult_1 = utils.convolution_block(mult_1, depthwise=True, BN=True, RELU=False,
+                                     name="edge_multiplication_1")
+    mult_2 = utils.convolution_block(mult_1, num_filters=num_filters, BN=True, RELU=False, separable=True,
+                                     name="edge_multiplication_2")
     
-    concat = tf.keras.layers.Concatenate(axis=-1)([mult, image_edge_concat])
+    concat = tf.keras.layers.Concatenate(axis=-1)([mult_2, image_edge_concat])
     x = utils.convolution_block(concat, num_filters=num_filters, kernel_size=3, name="concat_1")
-    x = utils.convolution_block(x, num_filters=num_filters, kernel_size=3, name="concat_2", seperable=True)
+    x = utils.convolution_block(x, depthwise=True, kernel_size=3, name="concat_2")
     
     return x, edge_layer_mult_2
