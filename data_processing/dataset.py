@@ -30,8 +30,9 @@ class DataProcessing:
     outputs_ann = list()
     num_classes = dict()
 
-    def __init__(self, input_shape, output_shape, config_path):
-        self.input_shape = input_shape
+    def __init__(self, input_shape_img, input_shape_mask, output_shape, config_path):
+        self.input_shape_img = input_shape_img
+        self.input_shape_mask = input_shape_mask
         self.output_shape = output_shape
         self.cfg = tools.config_loader(osp.join(config_path, 'dataset.yaml'))
         self.input_output_keys()
@@ -119,7 +120,7 @@ class DataProcessing:
         img_path = tf.strings.join([img_base_path, sep_str, img_idx_str, end_str])
         image = tf.io.read_file(img_path)
         image = tf.image.decode_png(image, channels=3)
-        image = tf.image.resize(image, self.input_shape, method='bilinear')
+        image = tf.image.resize(image, self.input_shape_img, method='bilinear')
         image = tf.cast(image, tf.uint8)
         dataset_dict['in_img'] = image
 
@@ -132,7 +133,7 @@ class DataProcessing:
             for mask_type in self.inputs:
                 idx = self.ds_inf[ds_type]['info']['mask'][mask_type]
                 mask = mask_input[:, :, idx:idx + 1]
-                dataset_dict['in_' + mask_type] = self.preprocess_mask(mask, ds_type, mask_type)
+                dataset_dict['in_' + mask_type] = self.preprocess_mask(mask, ds_type, mask_type, self.input_shape_mask)
     
             # mask output:
             mask_base_path = tf.constant(self.paths[ds_type]['ANN'], dtype=tf.string)
@@ -143,11 +144,11 @@ class DataProcessing:
             for mask_type in self.outputs_ann:
                 idx = self.ds_inf[ds_type]['info']['mask'][mask_type]
                 mask = mask_output[:, :, idx:idx + 1]
-                dataset_dict['out_' + mask_type] = self.preprocess_mask(mask, ds_type, mask_type)
+                dataset_dict['out_' + mask_type] = self.preprocess_mask(mask, ds_type, mask_type, self.output_shape)
 
         return dataset_dict
 
-    def preprocess_mask(self, mask, ds_type, mask_type):
+    def preprocess_mask(self, mask, ds_type, mask_type, mask_shape):
         # Python side effect ok as value does not change
 
         # category
@@ -173,10 +174,10 @@ class DataProcessing:
         shape = tf.shape(mask)
         current_shape = (shape[0], shape[1])
 
-        mask = self.resize_label_map(mask, current_shape, self.num_classes[mask_type])
+        mask = self.resize_label_map(mask, current_shape, self.num_classes[mask_type], mask_shape)
         return tf.cast(mask, tf.uint8)
 
-    def resize_label_map(self, label, current_shape_label, num_classes):
+    def resize_label_map(self, label, current_shape_label, num_classes, mask_shape):
         # label 3D
         label = tf.cast(label, tf.int32)
         label = tf.expand_dims(label, axis=0)
@@ -186,14 +187,14 @@ class DataProcessing:
         pad = tf.constant([[0, 0], [0, 0], [0, 0], [1, 0]])
         label_re = tf.pad(label_re, pad, "CONSTANT")
 
-        edge_width_height = int(current_shape_label[0] / self.output_shape[0]) + 1
-        edge_width_width = int(current_shape_label[1] / self.output_shape[1]) + 1
+        edge_width_height = int(current_shape_label[0] / mask_shape[0]) + 1
+        edge_width_width = int(current_shape_label[1] / mask_shape[1]) + 1
         kernel = tf.ones([edge_width_height, edge_width_width, num_classes + 1, 1], tf.float32)
         label_re = tf.cast(label_re, tf.float32)
         label_re = tf.nn.depthwise_conv2d(label_re, kernel, strides=[1, 1, 1, 1], padding="SAME")
         label_re = tf.cast(tf.clip_by_value(label_re, 0, 1), tf.int32)
 
-        label_re = tf.image.resize(label_re, self.output_shape, method='nearest', antialias=True)
+        label_re = tf.image.resize(label_re, mask_shape, method='nearest', antialias=True)
         label_re = tf.math.argmax(label_re, axis=-1, output_type=tf.int32)
         label = tf.expand_dims(label_re, axis=-1)
         label = tf.squeeze(label, axis=0)

@@ -3,7 +3,7 @@ EPOCHS: 80
 
 NAME: edge_detection_without_prior
 SAVE: true
-INPUT_SHAPE: [ 640, 360 ]
+INPUT_SHAPE_IMG: [ 640, 360 ]
 OUTPUT_SHAPE: [ 320, 180 ]
 SEED: null
 PARSER: false

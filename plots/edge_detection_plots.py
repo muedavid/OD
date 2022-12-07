@@ -5,9 +5,7 @@ from metrics import metrics
 
 
 def plot_edges(images=None, prior=None, labels=None, predictions=None, save=False, path=None, batch_size=0,
-               num_exp=None,
-               num_classes=0):
-    # TODO: think about plotting output after sigmoid as values are more meaningfull and scale too.
+               num_exp=None, num_classes=0):
     
     if num_exp:
         num_exp = min(num_exp, batch_size)
@@ -36,7 +34,7 @@ def plot_edges(images=None, prior=None, labels=None, predictions=None, save=Fals
             for j in range(num_classes):
                 plt.subplot(rows, num_exp, (1 + (prior is not None) + (labels is not None) + j) * num_exp + i + 1)
                 plt.title("Estimation of class: {}".format(j + 1))
-                plt.imshow(predictions[i, :, :, j], cmap='gray', vmin=-2, vmax=2)
+                plt.imshow(predictions[i, :, :, j], cmap='gray', vmin=0, vmax=1)
                 plt.axis('off')
     
     if save:

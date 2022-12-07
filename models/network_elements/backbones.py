@@ -1,4 +1,5 @@
 from tensorflow import keras
+import tensorflow as tf
 from numpy import array, log2
 from models.network_elements import utils
 
@@ -74,25 +75,51 @@ def residual_block_resnet(x, num_input_filter, name='residual_block', filter_mul
     if x.shape[-1] == num_input_filter * filter_multiplication:
         residual = x
     else:
-        residual = utils.convolution_block(x, num_input_filter * filter_multiplication, kernel_size=1, RELU=False)
+        residual = utils.convolution_block(x, num_filters=num_input_filter * filter_multiplication, kernel_size=1,
+                                           RELU=False, name="residual")
     
-    x = utils.convolution_block(x, num_input_filter, kernel_size=1, name=name + '_1')
-    x = utils.convolution_block(x, num_input_filter, kernel_size=3, name=name + '_2')
-    x = utils.convolution_block(x, num_input_filter * filter_multiplication, kernel_size=1, RELU=False,
+    x = utils.convolution_block(x, num_filters=num_input_filter, kernel_size=1, name=name + '_1')
+    x = utils.convolution_block(x, num_filters=num_input_filter, kernel_size=3, name=name + '_2')
+    x = utils.convolution_block(x, num_filters=num_input_filter * filter_multiplication, kernel_size=1, RELU=False,
                                 name=name + '_3')
     
     return keras.layers.Add(name=name + '_out')([x, residual])
 
 
-def edge_map_preprocessing(input_layer, input_shape, output_shape, num_filters):
+def edge_map_preprocessing(input_layer, image_layer, output_shape, num_filters):
+    edge = tf.expand_dims(input_layer, axis=-1)
+    shift_up = tf.constant([0, 0, 0, 0, 1])
+    shift_down = tf.constant([1, 0, 0, 0, 0])
+    shift_left = tf.constant([0, 0, 0, 0, 1])
+    shift_right = tf.constant([1, 0, 0, 0, 0])
+    shift_up = tf.cast(tf.reshape(shift_up, [1, 5, 1, 1, 1]), tf.float32)
+    shift_down = tf.cast(tf.reshape(shift_down, [1, 5, 1, 1, 1]), tf.float32)
+    shift_left = tf.cast(tf.reshape(shift_left, [1, 1, 5, 1, 1]), tf.float32)
+    shift_right = tf.cast(tf.reshape(shift_right, [1, 1, 5, 1, 1]), tf.float32)
+    filters = [shift_up, shift_down, shift_right, shift_left]
     
-    x = utils.convolution_block(input_layer, num_filters=num_filters, use_bias=True, name="edge_map_processing_1")
-    output_edge_map_1 = utils.convolution_block(x, num_filters=num_filters, use_bias=True, name="edge_map_processing_2")
+    shifted = [edge]
+    for i in range(len(filters)):
+        shifted.append(tf.nn.conv3d(edge, filters[i], strides=[1, 1, 1, 1, 1], padding="SAME"))
+    edge_shifted = tf.keras.layers.Concatenate(axis=-1)(shifted)
+    edge_shifted = tf.keras.layers.Conv3D(4, kernel_size=1, padding="same", use_bias=True, activation="relu")(edge_shifted)
     
-    down_sampling = int(log2(input_shape[0]/output_shape[0]).tolist())
+    shifted = [edge_shifted]
+    for i in range(4):
+        for f in filters:
+            shifted.append(tf.nn.conv3d(edge_shifted[:, :, :, :, i:i + 1], f, strides=[1, 1, 1, 1, 1], padding="SAME"))
+    edge_shifted = tf.keras.layers.Concatenate(axis=-1)(shifted)
+    edge_shifted = tf.keras.layers.Conv3D(5, kernel_size=1, padding="same", use_bias=True, activation="relu")(edge_shifted)
+    edge_shifted = tf.keras.layers.Conv3D(5, kernel_size=3, padding="same", use_bias=True, activation="relu")(edge_shifted)
+    
+    shape = tf.shape(edge_shifted)
+    x = tf.reshape(edge_shifted, [shape[0], shape[1], shape[2], shape[4]])
+    print(x.shape)
+    
+    down_sampling = int(log2(x.shape[1] / output_shape[0]).tolist())
     if down_sampling % 1 != 0.0:
         raise ValueError("input shape of the edge map must be exact dividable by the output shape of the backbone")
     for i in range(down_sampling):
         x = utils.convolution_block(x, num_filters=num_filters, kernel_size=3, strides=2, use_bias=True,
                                     name="edge_map_down_sampling_{}".format(i))
-    return output_edge_map_1, x
+    return x

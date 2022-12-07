@@ -3,7 +3,8 @@ EPOCHS: 10
 
 NAME: edge_detection_with_prior
 SAVE: true
-INPUT_SHAPE: [ 640, 360 ]
+INPUT_SHAPE_IMG: [ 640, 360 ]
+INPUT_SHAPE_MASK: [ 80, 45 ]
 OUTPUT_SHAPE: [ 320, 180 ]
 SEED: null
 PARSER: false
@@ -46,7 +47,7 @@ LOSS:
   flow_scene: null
 
 LR:
-  START:  0.005
+  START:  0.015
   END:    0.005
   POWER: 0.9
 

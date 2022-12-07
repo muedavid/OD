@@ -64,7 +64,7 @@ with open(model_config_path, 'r') as file:
 
 tf.random.set_seed(SEED)
 
-DP = dataset.DataProcessing(model_cfg["INPUT_SHAPE"], model_cfg["OUTPUT_SHAPE"], config_path)
+DP = dataset.DataProcessing(model_cfg["INPUT_SHAPE_IMG"], model_cfg["OUTPUT_SHAPE"], config_path)
 DP.path_definitions()
 
 MF = model_files.ModelFiles()
@@ -98,8 +98,8 @@ if TRAIN_MODEL:
     # BACKBONE
     backbone, output_names = backbones.get_backbone(name=model_cfg["BACKBONE"]["NAME"],
                                                     weights=model_cfg["BACKBONE"]["WEIGHTS"],
-                                                    height=model_cfg["INPUT_SHAPE"][0],
-                                                    width=model_cfg["INPUT_SHAPE"][1],
+                                                    height=model_cfg["INPUT_SHAPE_IMG"][0],
+                                                    width=model_cfg["INPUT_SHAPE_IMG"][1],
                                                     alpha=model_cfg["BACKBONE"]["ALPHA"],
                                                     output_layer=model_cfg["BACKBONE"]["OUTPUT_IDS"],
                                                     trainable_idx=model_cfg["BACKBONE"]["TRAIN_IDX"])

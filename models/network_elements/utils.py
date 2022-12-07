@@ -1,8 +1,8 @@
 import tensorflow as tf
 
 
-def convolution_block(block_input, num_filters=24, kernel_size=3, dilation_rate=1, strides=1, padding="same",
-                      use_bias=True, seperable=False, BN=True, RELU=True, name='conv_block'):
+def convolution_block(block_input, name, num_filters, kernel_size=3, dilation_rate=1, strides=1, padding="same",
+                      use_bias=True, seperable=False, BN=True, RELU=True, ):
     if seperable:
         x = tf.keras.layers.SeparableConv2D(num_filters, kernel_size=kernel_size, dilation_rate=dilation_rate,
                                             padding=padding, strides=strides, use_bias=use_bias,

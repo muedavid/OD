@@ -21,7 +21,7 @@ class EdgeDetector:
         output_filter_mult = 2
         inside_model_filter_mult = 3
         
-        input_shape = (self.cfg["INPUT_SHAPE"][0], self.cfg["INPUT_SHAPE"][1], 3)
+        input_shape = (self.cfg["INPUT_SHAPE_IMG"][0], self.cfg["INPUT_SHAPE_IMG"][1], 3)
         print(input_shape)
         backbone, output_names = backbones.get_backbone(name=self.cfg["BACKBONE"]["NAME"],
                                                         weights=self.cfg["BACKBONE"]["WEIGHTS"],
@@ -62,23 +62,22 @@ class EdgeDetector:
         inside_model_filter_mult = 2
         num_filters = self.num_classes * inside_model_filter_mult
         
-        input_shape = (self.cfg["INPUT_SHAPE"][0], self.cfg["INPUT_SHAPE"][1], 3)
-        input_edge_shape = (self.cfg["OUTPUT_SHAPE"][0], self.cfg["OUTPUT_SHAPE"][1], 1)
+        input_shape_img = (self.cfg["INPUT_SHAPE_IMG"][0], self.cfg["INPUT_SHAPE_IMG"][1], 3)
+        input_shape_mask = (self.cfg["INPUT_SHAPE_MASK"][0], self.cfg["INPUT_SHAPE_MASK"][1], 1)
         
-        print(input_shape)
         backbone, output_names = backbones.get_backbone(name=self.cfg["BACKBONE"]["NAME"],
                                                         weights=self.cfg["BACKBONE"]["WEIGHTS"],
-                                                        input_shape=input_shape,
+                                                        input_shape=input_shape_img,
                                                         alpha=self.cfg["BACKBONE"]["ALPHA"],
                                                         output_layer=self.cfg["BACKBONE"]["OUTPUT_IDS"],
                                                         trainable_idx=self.cfg["BACKBONE"]["TRAIN_IDX"])
         
-        input_model = keras.Input(shape=input_edge_shape, name='in_edge')
-        edge_map_preprocessor = backbones.edge_map_preprocessing(input_model, input_edge_shape,
+        input_model = keras.Input(shape=input_shape_mask, name='in_edge')
+        edge_map_preprocessor = backbones.edge_map_preprocessing(input_model, backbone.output[-1],
                                                                  backbone.output[-1].shape[1:],
                                                                  num_filters)
         
-        x, mult = pyramid_modules.concatenate_edge_and_image(backbone.output[-1], edge_map_preprocessor[-1],
+        x = pyramid_modules.concatenate_edge_and_image(backbone.output[-1], edge_map_preprocessor,
                                                        num_classes=self.num_classes,
                                                        filter_mult=inside_model_filter_mult)
         
@@ -91,13 +90,13 @@ class EdgeDetector:
                                                    num_filters=num_filters, method="bilinear", name="side1")
         side_output_2 = decoders.sged_side_feature(backbone.output[1], output_dims=self.cfg["OUTPUT_SHAPE"],
                                                    num_filters=num_filters, method="bilinear", name="side2")
-        side_edge = decoders.sged_side_feature(edge_map_preprocessor[0], output_dims=self.cfg["OUTPUT_SHAPE"],
+        side_edge = decoders.sged_side_feature(edge_map_preprocessor, output_dims=self.cfg["OUTPUT_SHAPE"],
                                                num_filters=num_filters, method="bilinear", name="edge_side")
         
         side_outputs = [side_output_1, side_output_2]
         
         output = utils.shared_concatenation_and_classification(decoder_output, side_outputs, self.num_classes,
                                                                num_filters=num_filters, name="out_edge")
-        model = keras.Model(inputs=[backbone.input, input_model], outputs=[output, mult])
+        model = keras.Model(inputs=[backbone.input, input_model], outputs=[output, edge_map_preprocessor, x])
         
         return model
