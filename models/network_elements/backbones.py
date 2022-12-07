@@ -134,7 +134,7 @@ def edge_map_preprocessing(input_layer, image_layer, output_shape, num_classes):
                                          name="edge_map_processing_2")
     edge_map_3 = utils.convolution_block(edge_map_2, kernel_size=5, num_filters=num_classes, use_bias=True, strides=2,
                                          name="edge_map_processing_3")
-
+    
     image_layer = utils.convolution_block(image_layer, num_filters=num_classes, RELU=True, BN=True, strides=2,
                                           name='backbone_output_for_edge_1')
     image_layer = utils.convolution_block(image_layer, num_filters=num_classes, RELU=True, BN=True, kernel_size=5,
@@ -154,3 +154,64 @@ def edge_map_preprocessing(input_layer, image_layer, output_shape, num_classes):
         x = utils.convolution_block(x, num_filters=num_classes, separable=True, strides=2,
                                     name="edge_map_down_sampling_{}".format(i))
     return x
+
+
+def edge_map_preprocessing_only_edge(input_layer, image_layer, output_shape, num_classes):
+    edge_map_1 = utils.convolution_block(input_layer, kernel_size=3, num_filters=num_classes, use_bias=True, strides=2,
+                                         name="edge_map_processing_1")
+    edge_map_2 = utils.convolution_block(edge_map_1, kernel_size=3, num_filters=2 * num_classes, use_bias=True,
+                                         strides=2,
+                                         name="edge_map_processing_2")
+    edge_map_3 = utils.convolution_block(edge_map_2, kernel_size=5, num_filters=num_classes, use_bias=True, strides=1,
+                                         name="edge_map_processing_3")
+    edge_map_4 = utils.convolution_block(edge_map_3, kernel_size=5, num_filters=2, use_bias=True, strides=1,
+                                         separable=True, name="edge_map_processing_4")
+    edge_map_5 = tf.keras.layers.Concatenate(axis=-1)([edge_map_2, edge_map_4])
+    edge_map_6 = utils.convolution_block(edge_map_5, kernel_size=3, num_filters=10, use_bias=True, strides=2,
+                                         separable=True, name="edge_map_processing_6")
+    edge_map_7 = utils.convolution_block(edge_map_6, kernel_size=5, num_filters=10, use_bias=True, strides=1,
+                                         separable=True, name="edge_map_processing_7")
+    edge_map_8 = utils.convolution_block(edge_map_7, kernel_size=5, num_filters=10, use_bias=True, strides=1,
+                                         separable=True, name="edge_map_processing_8")
+    return edge_map_8
+
+
+def edge_map_preprocessing_only_edge_3D(input_layer, image_layer, output_shape, num_classes):
+    edge = tf.expand_dims(input_layer, axis=-1)
+    
+    edge_1 = tf.keras.layers.Conv3D(1, kernel_size=(3, 3, 1), dilation_rate=1, padding='same',
+                                    strides=1, use_bias=True, name='edge_input_1_conv')(edge)
+    edge_1 = tf.keras.layers.BatchNormalization(name='edge_input_1_bn')(edge_1)
+    edge_1 = tf.keras.layers.ReLU(name='edge_input_1_relu')(edge_1)
+    
+    edge_2 = tf.keras.layers.Conv3D(3, kernel_size=(3, 3, 1), dilation_rate=1, padding='same',
+                                    strides=(2, 2, 1), use_bias=True, name='edge_input_2_conv')(edge_1)
+    edge_2 = tf.keras.layers.BatchNormalization(name='edge_input_2_bn')(edge_2)
+    edge_2 = tf.keras.layers.ReLU(name='edge_input_2_relu')(edge_2)
+    
+    edge_3 = tf.keras.layers.Conv3D(3, kernel_size=(3, 3, 1), dilation_rate=1, padding='same',
+                                    strides=(2, 2, 1), use_bias=True, name='edge_input_3_conv')(edge_2)
+    edge_3 = tf.keras.layers.BatchNormalization(name='edge_input_3_bn')(edge_3)
+    edge_3 = tf.keras.layers.ReLU(name='edge_input_3_relu')(edge_3)
+    
+    edge_4 = tf.keras.layers.Conv3D(1, kernel_size=(5, 5, 1), dilation_rate=1, padding='same',
+                                    strides=1, use_bias=False, name='edge_input_4_conv')(edge_3)
+    edge_4 = tf.keras.layers.BatchNormalization(name='edge_input_4_bn')(edge_4)
+    edge_4 = tf.keras.layers.ReLU(name='edge_input_4_relu')(edge_4)
+    
+    edge_4 = tf.squeeze(edge_4, axis=-1)
+    
+    edge_5 = utils.convolution_block(edge_4, kernel_size=3, num_filters=num_classes, use_bias=True, strides=2,
+                                     separable=True, name="edge_map_processing_5")
+    edge_6_1 = utils.convolution_block(edge_5, kernel_size=5, num_filters=num_classes, use_bias=True, strides=1,
+                                       separable=True, name="edge_map_processing_6_1")
+    edge_7_1 = utils.convolution_block(edge_6_1, kernel_size=5, num_filters=num_classes, use_bias=True, strides=1,
+                                       separable=True, name="edge_map_processing_7_1")
+    edge_6_2 = utils.convolution_block(edge_5, kernel_size=5, num_filters=1, use_bias=True, strides=1,
+                                       name="edge_map_processing_6_2")
+    edge_7_2 = utils.convolution_block(edge_6_2, kernel_size=5, num_filters=1, use_bias=True, strides=1,
+                                       name="edge_map_processing_7_2")
+    edge_8 = tf.keras.layers.Concatenate(axis=-1)([edge_7_1, edge_7_2])
+    edge_9 = utils.convolution_block(edge_8, kernel_size=5, num_filters=num_classes, use_bias=True, strides=1,
+                                     name="edge_map_processing_9")
+    return edge_9

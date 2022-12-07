@@ -159,4 +159,36 @@ def concatenate_edge_and_image(image_layer, edge_layer, num_classes, filter_mult
     x = utils.convolution_block(concat, num_filters=num_filters, kernel_size=3, name="concat_1")
     x = utils.convolution_block(x, depthwise=True, kernel_size=3, name="concat_2")
     
-    return x
+    return x, image_edge_concat
+
+
+def concatenate_edge_and_image_no_mult_only_edge(image_layer, edge_layer, num_classes, filter_mult):
+    num_filters = num_classes * filter_mult
+    
+    img_down = utils.convolution_block(image_layer, num_filters=num_filters, kernel_size=5, dilation_rate=1, strides=2,
+                                       separable=True, name='pyramid_downsampling')
+    img_down = tf.keras.layers.Concatenate(axis=-1)([edge_layer, img_down])
+    
+    pyramid_1 = utils.convolution_block(img_down, num_filters=num_filters, kernel_size=3, dilation_rate=1, BN=True,
+                                        RELU=True, separable=True, name="pyramid_1_1")
+    pyramid_1 = utils.convolution_block(pyramid_1, num_filters=num_filters, kernel_size=3, dilation_rate=1, BN=True,
+                                        RELU=True, name="pyramid_1_2")
+    pyramid_2 = utils.convolution_block(img_down, num_filters=num_filters, kernel_size=5, dilation_rate=1, BN=True,
+                                        RELU=True, name="pyramid_2_1")
+    pyramid_3 = utils.convolution_block(img_down, num_filters=num_filters, kernel_size=7, dilation_rate=1, BN=True,
+                                        RELU=True, name="pyramid_3_1")
+    
+    pyramid_4 = tf.keras.layers.AveragePooling2D(pool_size=(14, 14), strides=7,
+                                                 padding='SAME')(img_down)
+    pyramid_4 = utils.convolution_block(pyramid_4, num_filters=num_filters, kernel_size=3, dilation_rate=1, BN=True,
+                                        RELU=True, name="pyramid_avg")
+
+    pyramid_4 = tf.image.resize(pyramid_4, size=(edge_layer.shape[1], edge_layer.shape[2]))
+
+    pyramid = tf.keras.layers.Concatenate(axis=-1)([pyramid_1, pyramid_2, pyramid_3, pyramid_4])
+    pyramid = utils.convolution_block(pyramid, num_filters=num_filters, kernel_size=3, name="pyramid_out")
+    
+    out = tf.keras.layers.Concatenate(axis=-1)([edge_layer, pyramid])
+    out = utils.convolution_block(out, num_filters=num_filters, kernel_size=3, name="pyramid_module_out")
+    
+    return out

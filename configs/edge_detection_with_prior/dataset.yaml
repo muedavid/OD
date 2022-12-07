@@ -3,7 +3,7 @@ NAME: edge_detection
 BASE_PATH_DATA: /home/david/SemesterProject/Datasets
 DATASET_JSON: dataset.json
 
-# 0: INSTANCE, 1: CATEGORY
+# 0: INSTANCE, 1: CATEGORY, 2: BINARY
 MASK_TYPE:
   edge: 1
   cont: 1
@@ -30,7 +30,7 @@ TEST:
   NAME: Test
   MAX_IMG: 300
 
-  BATCH_SIZE: 3
+  BATCH_SIZE: 5
   # BATCH_SIZE: 1
   CACHE: true
   SHUFFLE: false
@@ -43,23 +43,23 @@ TRAIN:
   # MAX_IMG: 1500
   MAX_IMG: 1500
 
-  BATCH_SIZE: 3
+  BATCH_SIZE: 5
   # BATCH_SIZE: 1
   CACHE: true
   SHUFFLE: true
   PREFETCH: true
 
-  DATA_AUG: null
-#    blur: false
-#    brightness: 0.15
-#    contrast_factor: 0.85
-#    gaussian_value: 0.015
-#    hue: 0.05
-#    noise_std: 0.0
-#    saturation: 0.8
-#    sigma: 1.0
-#    strength_spot: 0.3
-#    value: 0.1
+  DATA_AUG:
+    blur: false
+    brightness: 0.2
+    contrast_factor: 0.7
+    gaussian_value: 0.0
+    hue: 0.05
+    noise_std: 0.0
+    saturation: 0.7
+    sigma: 1.0
+    strength_spot: 0.1
+    value: 0.1
 
 IMG_ONLY:
   PATH: 'Real'
