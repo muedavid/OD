@@ -23,15 +23,37 @@ def convolution_block(block_input, name, num_filters=1, kernel_size=3, dilation_
     return x
 
 
-def shared_concatenation_and_classification(decoder_output, side_outputs, num_classes, num_filters, name):
+def shared_concatenation_and_classification(decoder_output, side, num_classes, num_filters, name):
+    out = []
+    for i in range(num_classes):
+        idx_mult = int(decoder_output.shape[-1] / num_classes)
+        concatenated_layers_1 = tf.keras.layers.Concatenate(axis=-1)(
+            [decoder_output[:, :, :, idx_mult * i:idx_mult * (i + 1)], side])
+        x = convolution_block(concatenated_layers_1, num_filters=num_filters, kernel_size=1,
+                              name='out_concat_1_{}'.format(i))
+        x = convolution_block(x, num_filters=num_filters, kernel_size=1,
+                              name='out_concat_2_{}'.format(i))
+        x = convolution_block(x, num_filters=idx_mult, kernel_size=1,
+                              name='out_concat_3_{}'.format(i))
+        convolved_layers = tf.keras.layers.Conv2D(filters=1, kernel_size=1)(x)
+        if num_classes == 1:
+            return tf.keras.layers.Activation(activation='sigmoid', name=name)(convolved_layers)
+        else:
+            out.append(convolved_layers)
+    
+    output = tf.keras.layers.Concatenate(axis=-1, name='output_concatenation')(out)
+    return tf.keras.layers.Activation(activation='sigmoid', name=name)(output)
+
+
+def shared_concatenation_and_classification_old(decoder_output, side_outputs, num_classes, num_filters, name):
     sides = tf.keras.layers.Concatenate(axis=-1)(side_outputs)
-    sides = convolution_block(sides, num_filters=3, kernel_size=3, name="sides_concatenation")
+    sides = convolution_block(sides, num_filters=3, kernel_size=1, name="sides_concatenation")
     out = []
     for i in range(num_classes):
         idx_mult = int(decoder_output.shape[-1] / num_classes)
         concatenated_layers_1 = tf.keras.layers.Concatenate(axis=-1)(
             [decoder_output[:, :, :, idx_mult * i:idx_mult * (i + 1)], sides])
-        x = convolution_block(concatenated_layers_1, num_filters=2*idx_mult, kernel_size=3,
+        x = convolution_block(concatenated_layers_1, num_filters=num_filters, kernel_size=1,
                               name='out_concat_1_{}'.format(i))
         x = convolution_block(x, num_filters=idx_mult, kernel_size=3, separable=True,
                               name='out_concat_2_{}'.format(i))

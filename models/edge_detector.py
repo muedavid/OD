@@ -21,7 +21,7 @@ class EdgeDetector:
         output_filter_mult = 2
         inside_model_filter_mult = 3
         
-        input_shape = (self.cfg["INPUT_SHAPE"][0], self.cfg["INPUT_SHAPE"][1], 3)
+        input_shape = (self.cfg["INPUT_SHAPE_IMG"][0], self.cfg["INPUT_SHAPE_IMG"][1], 3)
         print(input_shape)
         backbone, output_names = backbones.get_backbone(name=self.cfg["BACKBONE"]["NAME"],
                                                         weights=self.cfg["BACKBONE"]["WEIGHTS"],
@@ -58,12 +58,10 @@ class EdgeDetector:
         return model
     
     def edge_detection_with_prior(self):
-        output_filter_mult = 2
-        inside_model_filter_mult = 3
-        num_filters = self.num_classes * inside_model_filter_mult
+        num_filters = 10
         
-        input_shape = (self.cfg["INPUT_SHAPE"][0], self.cfg["INPUT_SHAPE"][1], 3)
-        input_edge_shape = (self.cfg["OUTPUT_SHAPE"][0], self.cfg["OUTPUT_SHAPE"][1], self.num_classes)
+        input_shape = (self.cfg["INPUT_SHAPE_IMG"][0], self.cfg["INPUT_SHAPE_IMG"][1], 3)
+        input_edge_shape = (self.cfg["INPUT_SHAPE_MASK"][0], self.cfg["INPUT_SHAPE_MASK"][1], self.num_classes)
         
         print(input_shape)
         backbone, output_names = backbones.get_backbone(name=self.cfg["BACKBONE"]["NAME"],
@@ -74,30 +72,25 @@ class EdgeDetector:
                                                         trainable_idx=self.cfg["BACKBONE"]["TRAIN_IDX"])
         
         input_model = keras.Input(shape=input_edge_shape, name='in_edge')
-        edge_map = backbones.edge_map_preprocessing_only_edge_3D(input_model, backbone.output[-1],
-                                                                 output_shape=backbone.output[-1].shape[1:],
-                                                                 num_classes=self.num_classes)
+        # edge_map = backbones.edge_map_preprocessing_shifted(input_model)
+        edge_map = backbones.edge_map_preprocessing(input_model)
+
+        # x, pyramid_out, edge_layer_concat, image_layer_concat = pyramid_modules.concatenate_edge_and_image(
+        #     backbone.output[1], edge_map, num_filters=num_filters)
+        x, pyramid_out, edge_layer_concat, image_layer_concat, after_mult = pyramid_modules.concatenate_edge_and_image_mult(
+            backbone.output[1], edge_map, num_filters=num_filters)
         
-        x = pyramid_modules.concatenate_edge_and_image_no_mult_only_edge(backbone.output[-1], edge_map,
-                                                                         num_classes=self.num_classes,
-                                                                         filter_mult=inside_model_filter_mult)
+        decoder_output = decoders.decoder_small(x, output_dims=self.cfg["OUTPUT_SHAPE"], num_filters=5)
         
-        decoder_output = decoders.sged_decoder(x, backbone.output[1],
-                                               output_dims=self.cfg["OUTPUT_SHAPE"],
-                                               num_filters=num_filters)
+        sides = decoders.side_feature([backbone.output[0], backbone.output[1]], output_dims=self.cfg["OUTPUT_SHAPE"],
+                                      num_filters=num_filters, method="bilinear", name="side")
         
-        side_output_1 = decoders.sged_side_feature(backbone.output[1], output_dims=self.cfg["OUTPUT_SHAPE"],
-                                                   num_filters=num_filters, method="bilinear", name="side1")
-        side_output_2 = decoders.sged_side_feature(backbone.output[0], output_dims=self.cfg["OUTPUT_SHAPE"],
-                                                   num_filters=num_filters, method="bilinear", name="side2")
-        # side_output_3 = decoders.side_feature_edge_prior(edge_map, output_dims=self.cfg["OUTPUT_SHAPE"],
-        #                                                  num_filters=num_filters, method="bilinear", name="side3")
-        
-        side_outputs = [side_output_1, side_output_2]
-        
-        output = utils.shared_concatenation_and_classification(decoder_output, side_outputs, self.num_classes,
-                                                               num_filters=output_filter_mult * self.num_classes,
+        output = utils.shared_concatenation_and_classification(decoder_output, sides, self.num_classes,
+                                                               num_filters=5,
                                                                name="out_edge")
-        model = keras.Model(inputs=[backbone.input, input_model], outputs=[output, edge_map])
+        
+        model = keras.Model(inputs=[backbone.input, input_model],
+                            outputs=[output, x, pyramid_out, edge_layer_concat, image_layer_concat, decoder_output,
+                                     sides])
         
         return model

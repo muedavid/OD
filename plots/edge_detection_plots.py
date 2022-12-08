@@ -6,7 +6,7 @@ from utils import tools
 
 
 def plot_edges(images=None, prior=None, labels=None, predictions=None, save=False, path=None, batch_size=0,
-               num_exp=None, num_classes=0, squeeze_to_single_dimension=True):
+               num_exp=None, num_classes=0, squeeze_to_single_dimension=False):
     
     if labels is not None and squeeze_to_single_dimension is True:
         labels = tools.squeeze_labels_to_single_dimension(labels)

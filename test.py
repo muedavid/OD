@@ -26,7 +26,7 @@ model_config_path = os.path.join(config_path, 'model.yaml')
 model_cfg = tools.config_loader(model_config_path)
 
 # Initialize Dataset loader & parse arguments if given from command line
-DP = dataset.DataProcessing(model_cfg["INPUT_SHAPE"], model_cfg["OUTPUT_SHAPE"], config_path)
+DP = dataset.DataProcessing(model_cfg["INPUT_SHAPE_IMG"], model_cfg["OUTPUT_SHAPE"], config_path)
 LU = learning_utils.LearningUtil(DP.cfg['TRAIN']['BATCH_SIZE'], config_path)
 tools.parser(model_cfg, DP.cfg)
 
@@ -104,8 +104,8 @@ test_ds, img_count_test = DP.load_dataset(DP.key.test, shuffle=False, prefetch=T
 #     # BACKBONE
 #     backbone, output_names = backbones.get_backbone(name=model_cfg["BACKBONE"]["NAME"],
 #                                                     weights=model_cfg["BACKBONE"]["WEIGHTS"],
-#                                                     height=model_cfg["INPUT_SHAPE"][0],
-#                                                     width=model_cfg["INPUT_SHAPE"][1],
+#                                                     height=model_cfg["INPUT_SHAPE_IMG"][0],
+#                                                     width=model_cfg["INPUT_SHAPE_IMG"][1],
 #                                                     alpha=model_cfg["BACKBONE"]["ALPHA"],
 #                                                     output_layer=model_cfg["BACKBONE"]["OUTPUT_IDS"],
 #                                                     trainable_idx=model_cfg["BACKBONE"]["TRAIN_IDX"])

@@ -5,7 +5,7 @@ DATASET_JSON: dataset.json
 
 # 0: INSTANCE, 1: CATEGORY, 2: BINARY
 MASK_TYPE:
-  edge: 1
+  edge: 2
   cont: 1
   vert: 1
 
@@ -41,7 +41,7 @@ TEST:
 TRAIN:
   NAME: Train
   # MAX_IMG: 1500
-  MAX_IMG: 1500
+  MAX_IMG: 500
 
   BATCH_SIZE: 5
   # BATCH_SIZE: 1
@@ -49,22 +49,22 @@ TRAIN:
   SHUFFLE: true
   PREFETCH: true
 
-  DATA_AUG:
-    blur: false
-    brightness: 0.2
-    contrast_factor: 0.7
-    gaussian_value: 0.0
-    hue: 0.05
-    noise_std: 0.0
-    saturation: 0.7
-    sigma: 1.0
-    strength_spot: 0.1
-    value: 0.1
+  DATA_AUG: null
+#    blur: false
+#    brightness: 0.2
+#    contrast_factor: 0.7
+#    gaussian_value: 0.0
+#    hue: 0.05
+#    noise_std: 0.0
+#    saturation: 0.7
+#    sigma: 1.0
+#    strength_spot: 0.1
+#    value: 0.1
 
 IMG_ONLY:
   PATH: 'Real'
 
-  MAX_IMG: 100
+  MAX_IMG: 20
 
   BATCH_SIZE: 6
 
