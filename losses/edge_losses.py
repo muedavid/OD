@@ -40,10 +40,18 @@ class WeightedMultiLabelSigmoidLoss(tf.keras.losses.Loss):
         zero_sig_out = one - one_sig_out
         
         loss = -edge_loss_weighting * y_true * tf.math.log(tf.clip_by_value(one_sig_out, 1e-10, 1000)) - (
-                    1 - edge_loss_weighting) * (
+                1 - edge_loss_weighting) * (
                        1 - y_true) * tf.math.log(tf.clip_by_value(zero_sig_out, 1e-10, 1000))
         loss = tf.reduce_mean(tf.reduce_sum(loss, axis=[1, 2, 3]))
         return loss
+    
+    def get_config(self):
+        base_config = super().get_config()
+        base_config['min_edge_loss_weighting'] = self.min_edge_loss_weighting
+        base_config['max_edge_loss_weighting'] = self.max_edge_loss_weighting
+        base_config['class_individually_weighted'] = self.class_individually_weighted
+        return base_config
+
 
 
 class FocalLossEdges(tf.keras.losses.Loss):
@@ -87,6 +95,39 @@ class FocalLossEdges(tf.keras.losses.Loss):
         loss = tf.reduce_mean(tf.reduce_sum(tf.reduce_mean(loss, axis=-1), axis=[1, 2]))
         
         return loss
+    
+    def get_config(self):
+        base_config = super().get_config()
+        base_config['min_edge_loss_weighting'] = self.min_edge_loss_weighting
+        base_config['max_edge_loss_weighting'] = self.max_edge_loss_weighting
+        base_config['edge_loss_weighting'] = self.edge_loss_weighting
+        base_config['power'] = self.power
+        return base_config
+
+
+class FlowLoss(tf.keras.losses.Loss):
+    def __init__(self, large_loss_threshold=2.0, name='flow_loss'):
+        super().__init__(name=name)
+        self.large_loss_threshold = large_loss_threshold
+    
+    @tf.function
+    def call(self, y_true, y_pred):
+        
+        mult = 1.0
+        
+        large_loss = tf.where(tf.abs(y_true - y_pred) >= self.large_loss_threshold, 1.0, 0.0)
+        large_loss = tf.cast(large_loss, tf.float32)
+        
+        loss = mult * large_loss * tf.abs(y_true - y_pred) + \
+               mult / self.large_loss_threshold * (1 - large_loss) * tf.math.square(y_true - y_pred)
+        loss = loss * tf.clip_by_value(tf.pow(y_true, 2), 1, 5)
+        # loss = loss * tf.cast(tf.where(tf.abs(y_true) > 0.001, 1, 0), tf.float32)
+        return tf.reduce_mean(tf.reduce_sum(loss, axis=-1))
+    
+    def get_config(self):
+        base_config = super().get_config()
+        base_config['large_loss_threshold'] = self.large_loss_threshold
+        return base_config
 
 
 def weighted_multi_label_sigmoid_loss_alternative_implementation(y_true, y_prediction):

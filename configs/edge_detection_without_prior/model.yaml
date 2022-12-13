@@ -20,8 +20,8 @@ BACKBONE:
   WEIGHTS: imagenet
   # OUTPUT_IDX: &idx 5
   # OUTPUT_IDS: [1, 2, 3, *idx]
-  OUTPUT_IDX: &idx 3
-  OUTPUT_IDS: [1, 2, *idx]
+  OUTPUT_IDX: &idx 2
+  OUTPUT_IDS: [1, *idx]
   TRAIN_IDX: null
 
   FINE_TUNING:
@@ -40,7 +40,7 @@ LOSS:
       edge_loss_weighting: true
       min_edge_loss_weighting: 0.5
       max_edge_loss_weighting: 0.5
-      power: 4.0
+      power: 2.0
   vert: null
   cont: null
   flow_edge: null
@@ -59,8 +59,9 @@ CALLBACKS:
   TENSORBOARD: false
 
 CATEGORIES:
-  base: 1
-  bar: 2
-  cover: 3
-  elektro: 4
-  tube: 5
+  edge: 1
+#  base: 1
+#  bar: 2
+#  cover: 3
+#  elektro: 4
+#  tube: 5

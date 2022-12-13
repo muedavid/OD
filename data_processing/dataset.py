@@ -80,12 +80,8 @@ class DataProcessing:
         dataset = tf.data.Dataset.from_tensor_slices(range(max_idx))
         dataset = dataset.map(lambda x: self.parse_data(x, ds_type), num_parallel_calls=tf.data.experimental.AUTOTUNE)
         
-        if self.cfg['out']['flow_edge'] and ds_type != "IMG_ONLY":
-            edge_dataset = self.load_flow_ds(ds_type, max_idx, self.ds_inf[ds_type]["info"]["flow"]["edge"])
-            dataset_combined = tf.data.Dataset.zip((dataset, edge_dataset))
-            dataset = dataset_combined.map(self.combine_ds, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-        elif self.cfg['out']['flow_scene'] and ds_type != "IMG_ONLY":
-            edge_dataset = self.load_flow_ds(ds_type, max_idx, self.ds_inf[ds_type]["info"]["flow"]["scene"])
+        if (self.cfg['out']['flow_edge'] or self.cfg['out']['flow_scene']) and ds_type != "IMG_ONLY":
+            edge_dataset = self.load_flow_ds(ds_type, max_idx)
             dataset_combined = tf.data.Dataset.zip((dataset, edge_dataset))
             dataset = dataset_combined.map(self.combine_ds, num_parallel_calls=tf.data.experimental.AUTOTUNE)
         
@@ -125,6 +121,15 @@ class DataProcessing:
         dataset_dict['in_img'] = image
         
         if ds_type != 'IMG_ONLY':
+            if self.cfg["in"]["prior_img"]:
+                img_base_path = tf.constant(self.paths[ds_type]["PRIOR_IMG"], dtype=tf.string)
+                img_path = tf.strings.join([img_base_path, sep_str, img_idx_str, end_str])
+                image = tf.io.read_file(img_path)
+                image = tf.image.decode_png(image, channels=3)
+                image = tf.image.resize(image, self.input_shape_img, method='bilinear')
+                image = tf.cast(image, tf.uint8)
+                dataset_dict['in_prior_img'] = image
+            
             # mask input:
             mask_base_path = tf.constant(self.paths[ds_type]['PRIOR_ANN'], dtype=tf.string)
             mask_path = tf.strings.join([mask_base_path, sep_str, img_idx_str, end_str])
@@ -157,7 +162,7 @@ class DataProcessing:
             mask = tf.where(mask > 0, 1, 0)
             mask = tf.cast(mask, tf.uint8)
             self.num_classes[mask_type] = 1
-
+        
         # category
         elif self.cfg['MASK_TYPE'][mask_type] == 1:
             mask = tf.cast(mask, tf.int32)
@@ -217,15 +222,21 @@ class DataProcessing:
         return label
     
     def combine_ds(self, dataset_dict, flow_field):
-        flow_field = tf.image.resize(flow_field, self.output_shape, method='nearest')
+        flow_field = tf.image.resize(flow_field, self.output_shape, method='bilinear')
         dataset_dict['out_flow'] = flow_field
+        if self.cfg['out']['flow_edge']:
+            dataset_dict['out_flow'] = dataset_dict['out_flow'] * tf.cast(tf.where(dataset_dict['in_edge'] > 0, 1, 0),
+                                                                          tf.float32)
         return dataset_dict
     
-    def load_flow_ds(self, ds_type, max_idx, idx):
+    # TODO: adapt dataset to render only scene
+    def load_flow_ds(self, ds_type, max_idx):
         edge_stacked = []
         for i in range(max_idx):
             edge = np.load(self.paths[ds_type]['EDGE_FLOW'] + '/{:04}.npy'.format(i))
-            edge = edge[idx, :, :, :].astype(np.float32)
+            edge = edge[1, :, :, :].astype(np.float32)
+            edge[:, :, 0] = edge[:, :, 0] * self.output_shape[0]
+            edge[:, :, 1] = edge[:, :, 1] * self.output_shape[1]
             edge_stacked.append(edge)
         edges = np.stack(edge_stacked, axis=0)
         edge_dataset = tf.data.Dataset.from_tensor_slices(edges)

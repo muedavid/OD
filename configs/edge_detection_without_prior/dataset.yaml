@@ -4,7 +4,7 @@ BASE_PATH_DATA: /home/david/SemesterProject/Datasets
 DATASET_JSON: dataset.json
 
 MASK_TYPE: # 0: INSTANCE, 1: CATEGORY
-  edge: 1
+  edge: 2
   cont: 1
   vert: 1
 
@@ -12,6 +12,7 @@ in:
   edge: false
   vert: false
   cont: false
+  prior_img: false
 
 out:
   edge: true
@@ -29,7 +30,7 @@ TEST:
   NAME: Test
   MAX_IMG: 300
 
-  BATCH_SIZE: 3
+  BATCH_SIZE: 5
   # BATCH_SIZE: 1
   CACHE: true
   SHUFFLE: false
@@ -41,7 +42,7 @@ TRAIN:
   NAME: Train
   MAX_IMG: 1500
 
-  BATCH_SIZE: 3
+  BATCH_SIZE: 5
   # BATCH_SIZE: 1
   CACHE: true
   SHUFFLE: true

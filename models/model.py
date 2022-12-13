@@ -68,6 +68,9 @@ class Model:
                     sigmoid_cfg['class_individually_weighted'])
                 
                 self.custom_objects['WeightedMultiLabelSigmoidLoss'] = edge_losses.WeightedMultiLabelSigmoidLoss
+        if self.cfg['LOSS']['flow_edge'] or self.cfg['LOSS']['flow_scene']:
+            loss_functions['out_flow'] = edge_losses.FlowLoss()
+            self.custom_objects['FlowLoss'] = edge_losses.FlowLoss
         return loss_functions
     
     def get_metrics(self, num_classes):

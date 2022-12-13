@@ -27,14 +27,25 @@ def shared_concatenation_and_classification(decoder_output, side, num_classes, n
     out = []
     for i in range(num_classes):
         idx_mult = int(decoder_output.shape[-1] / num_classes)
-        concatenated_layers_1 = tf.keras.layers.Concatenate(axis=-1)(
-            [decoder_output[:, :, :, idx_mult * i:idx_mult * (i + 1)], side])
+        decoder_per_class = decoder_output[:, :, :, idx_mult * i:idx_mult * (i + 1)]
+        
+        decoder_mult = convolution_block(decoder_per_class, kernel_size=1, name="output_decoder_mult_{}".format(i), num_filters=2,
+                                         RELU=False)
+        decoder_mult = tf.keras.layers.Activation(activation="sigmoid")(decoder_mult)
+        side_mult = convolution_block(side, name="output_side_mult_{}".format(i), num_filters=2)
+        out = []
+        for j in range(2):
+            out.append(decoder_mult[:, :, :, j:j + 1] * side_mult)
+        mult = tf.keras.layers.Concatenate(axis=-1)(out)
+        decoder_concat = convolution_block(decoder_per_class, kernel_size=1, name="output_decoder_concat_{}".format(i), num_filters=2)
+        side_concat = convolution_block(side, name="output_side_concat_{}".format(i), num_filters=2)
+        
+        concatenated_layers_1 = tf.keras.layers.Concatenate(axis=-1)([mult, decoder_concat, side_concat])
+        
         x = convolution_block(concatenated_layers_1, num_filters=num_filters, kernel_size=1,
                               name='out_concat_1_{}'.format(i))
         x = convolution_block(x, num_filters=num_filters, kernel_size=1,
                               name='out_concat_2_{}'.format(i))
-        x = convolution_block(x, num_filters=idx_mult, kernel_size=1,
-                              name='out_concat_3_{}'.format(i))
         convolved_layers = tf.keras.layers.Conv2D(filters=1, kernel_size=1)(x)
         if num_classes == 1:
             return tf.keras.layers.Activation(activation='sigmoid', name=name)(convolved_layers)

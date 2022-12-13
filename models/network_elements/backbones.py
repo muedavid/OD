@@ -5,7 +5,7 @@ from models.network_elements import utils
 
 
 def get_backbone(name="MobileNetV2", weights="imagenet", input_shape=(640, 360, 3), alpha=1,
-                 output_layer=None, trainable_idx=None):
+                 output_layer=None, trainable_idx=None, input_name='in_img'):
     if output_layer is None:
         output_layer = [0, 1, 2]
     include_top = False
@@ -61,12 +61,16 @@ def get_backbone(name="MobileNetV2", weights="imagenet", input_shape=(640, 360, 
             if layer.name == layer_names[trainable_idx]:
                 break
     
+    if input_name == "in_img":
+        names = ["base_model", "backbone"]
+    else:
+        names = ["base_model_prior", "backbone_prior"]
     layers = [base_model.get_layer(layer_name).output for layer_name in layer_names[output_layer]]
-    backbone = keras.Model(inputs=base_model.input, outputs=layers, name="base_model")
+    backbone = keras.Model(inputs=base_model.input, outputs=layers, name=names[0])
     
-    input_model = keras.Input(shape=input_shape, name='in_img')
+    input_model = keras.Input(shape=input_shape, name=input_name)
     x = backbone(input_model, training=True)
-    backbone = keras.Model(input_model, x, name="backbone")
+    backbone = keras.Model(input_model, x, name=names[1])
     
     return backbone, layer_names
 
@@ -180,5 +184,79 @@ def edge_map_preprocessing_shifted(input_layer):
         edge_shifted)
     
     shape = tf.shape(edge_shifted)
-    x = tf.reshape(edge_shifted, [shape[0], shape[1], shape[2], shape[3]*shape[4]])
+    x = tf.reshape(edge_shifted, [shape[0], shape[1], shape[2], shape[3] * shape[4]])
     return x
+
+
+def edge_map_preprocessing_combined(input_layer):
+    num_filters = 5
+    edge = tf.expand_dims(input_layer, axis=-1)
+    dim = 10
+    shift_up = tf.constant([0, 0, 0, 0, 0, 0, 0, 0, 0, 1])
+    shift_down = tf.constant([1, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    shift_left = tf.constant([0, 0, 0, 0, 0, 0, 0, 0, 0, 1])
+    shift_right = tf.constant([1, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    shift_up = tf.cast(tf.reshape(shift_up, [1, dim, 1, 1, 1]), tf.float32)
+    shift_down = tf.cast(tf.reshape(shift_down, [1, dim, 1, 1, 1]), tf.float32)
+    shift_left = tf.cast(tf.reshape(shift_left, [1, 1, dim, 1, 1]), tf.float32)
+    shift_right = tf.cast(tf.reshape(shift_right, [1, 1, dim, 1, 1]), tf.float32)
+    shift_direction_to_filter = {"up": shift_up, "down": shift_down, "left": shift_left, "right": shift_right}
+    shift_pattern = {"up": ["up", "left", "right"],
+                     "down": ["down", "left", "right"],
+                     "left": ["left"],
+                     "right": ["right"]}
+    
+    shifted = [edge]
+    for shift_direction_first, following_shift_direction in shift_pattern.items():
+        conv_filter = shift_direction_to_filter[shift_direction_first]
+        edge_shifted = tf.nn.conv3d(edge, conv_filter, strides=[1, 1, 1, 1, 1], padding="SAME")
+        shifted.append(edge_shifted)
+        for shift_direction_second in following_shift_direction:
+            conv_filter = shift_direction_to_filter[shift_direction_second]
+            shifted.append(tf.nn.conv3d(edge_shifted, conv_filter, strides=[1, 1, 1, 1, 1], padding="SAME"))
+    
+    edge_shifted = tf.keras.layers.Concatenate(axis=-1, name="concat_shifted_filter")(shifted)
+    shape = tf.shape(edge_shifted)
+    edge_shifted = tf.reshape(edge_shifted, [shape[0], shape[1], shape[2], shape[3] * shape[4]])
+    
+    edge_map_1 = utils.convolution_block(edge_shifted, kernel_size=1, num_filters=2*num_filters, use_bias=True,
+                                         separable=True, name="edge_map_processing_1")
+    edge_map_2 = utils.convolution_block(edge_map_1, kernel_size=3, num_filters=num_filters, use_bias=True,
+                                         separable=True, name="edge_map_processing_2")
+    return edge_map_2
+
+
+def edge_flow(input_layer):
+    edge = tf.expand_dims(input_layer, axis=-1)
+    dim = 5
+    shift_up = tf.constant([0, 0, 0, 0, 1])
+    shift_down = tf.constant([1, 0, 0, 0, 0])
+    shift_left = tf.constant([0, 0, 0, 0, 1])
+    shift_right = tf.constant([1, 0, 0, 0, 0])
+    shift_up = tf.cast(tf.reshape(shift_up, [1, dim, 1, 1, 1]), tf.float32)
+    shift_down = tf.cast(tf.reshape(shift_down, [1, dim, 1, 1, 1]), tf.float32)
+    shift_left = tf.cast(tf.reshape(shift_left, [1, 1, dim, 1, 1]), tf.float32)
+    shift_right = tf.cast(tf.reshape(shift_right, [1, 1, dim, 1, 1]), tf.float32)
+    shift_direction_to_filter = {"up": shift_up, "down": shift_down, "left": shift_left, "right": shift_right}
+    shift_pattern = {"up": ["up", "left", "right"],
+                     "down": ["down", "left", "right"],
+                     "left": ["left"],
+                     "right": ["right"]}
+    
+    shifted = [edge]
+    for shift_direction in shift_pattern.keys():
+        conv_filter = shift_direction_to_filter[shift_direction]
+        edge_shifted = tf.nn.conv3d(edge, conv_filter, strides=[1, 1, 1, 1, 1], padding="SAME")
+        shifted.append(edge_shifted)
+        for shift_direction_second in shift_pattern[shift_direction]:
+            conv_filter = shift_direction_to_filter[shift_direction_second]
+            shifted.append(tf.nn.conv3d(edge_shifted, conv_filter, strides=[1, 1, 1, 1, 1], padding="SAME"))
+    
+    edge_shifted = tf.keras.layers.Concatenate(axis=-1, name="concat_shifted_filter")(shifted)
+    shape = tf.shape(edge_shifted)
+    x = tf.reshape(edge_shifted, [shape[0], shape[1], shape[2], shape[3] * shape[4]])
+    return x
+
+
+    
+    
