@@ -15,6 +15,8 @@ class EdgeDetector:
             model = self.edge_detection_with_prior()
         elif self.cfg['NAME'] == 'flow':
             model = self.flow()
+        elif self.cfg['NAME'] == 'flow_edge':
+            model = self.flow_edge()
         else:
             raise ValueError('Model Architecture not implemented')
         return model
@@ -61,7 +63,7 @@ class EdgeDetector:
                                                                num_filters=10,
                                                                name="out_edge")
         
-        model = keras.Model(inputs=backbone.input, outputs=output)
+        model = keras.Model(inputs=backbone.input, outputs=[output, x, sides, decoder_output])
         
         return model
     
@@ -100,18 +102,37 @@ class EdgeDetector:
         # model = keras.Model(inputs=[backbone.input, input_model],
         #                     outputs=[output, sides, decoder_output, x])
         model = keras.Model(inputs=[backbone.input, input_model],
+                            outputs=[output, x, pyramid_out, edge_layer_concat, image_layer_concat, decoder_output,
+                                     sides])
+        
+        return model
+    
+    def flow(self):
+        input_shape = (self.cfg["INPUT_SHAPE_IMG"][0], self.cfg["INPUT_SHAPE_IMG"][1], 3)
+        
+        input_1, input_2, output = pyramid_modules.image_flow(input_shape)
+        
+        model = keras.Model(inputs=[input_1, input_2],
                             outputs=[output])
         
         return model
 
-    def flow(self):
-    
+    def flow_edge(self):
         input_shape = (self.cfg["INPUT_SHAPE_IMG"][0], self.cfg["INPUT_SHAPE_IMG"][1], 3)
+
+        input_shape = (self.cfg["INPUT_SHAPE_IMG"][0], self.cfg["INPUT_SHAPE_IMG"][1], 3)
+        input_edge_shape = (self.cfg["INPUT_SHAPE_MASK"][0], self.cfg["INPUT_SHAPE_MASK"][1], 1)
+        input_edge = keras.Input(shape=input_edge_shape, name='in_edge')
+        backbone, output_names = backbones.get_backbone(name=self.cfg["BACKBONE"]["NAME"],
+                                                        weights=self.cfg["BACKBONE"]["WEIGHTS"],
+                                                        input_shape=input_shape,
+                                                        alpha=self.cfg["BACKBONE"]["ALPHA"],
+                                                        output_layer=self.cfg["BACKBONE"]["OUTPUT_IDS"],
+                                                        trainable_idx=self.cfg["BACKBONE"]["TRAIN_IDX"])
     
-        input_1, input_2, output = pyramid_modules.image_flow(input_shape)
+        output_flow, output_image = pyramid_modules.flow_edge(backbone.output[-1], input_edge)
     
-        model = keras.Model(inputs=[input_1, input_2],
-                            outputs=[output])
+        model = keras.Model(inputs=[backbone.input, input_edge],
+                            outputs=[output_flow, output_image])
     
         return model
-    

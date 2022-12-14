@@ -8,7 +8,7 @@ import cv2
 
 def plot_flow_field(images=None, prior=None, flow_ground_truth=None, flow_prediction=None, batch_size=0, num_exp=None, num_classes=1):
     
-    flow_max = 5.0
+    flow_max = 4.0
     
     if num_exp:
         num_exp = min(num_exp, batch_size)

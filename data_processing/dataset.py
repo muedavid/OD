@@ -222,10 +222,11 @@ class DataProcessing:
         return label
     
     def combine_ds(self, dataset_dict, flow_field):
-        flow_field = tf.image.resize(flow_field, self.output_shape, method='bilinear')
+        flow_field = tf.image.resize(flow_field, (20, 12), method='bilinear')
         dataset_dict['out_flow'] = flow_field
         if self.cfg['out']['flow_edge']:
-            dataset_dict['out_flow'] = dataset_dict['out_flow'] * tf.cast(tf.where(dataset_dict['in_edge'] > 0, 1, 0),
+            label_map = self.resize_label_map(dataset_dict['in_edge'], (80, 45), 1, (20, 12))
+            dataset_dict['out_flow'] = dataset_dict['out_flow'] * tf.cast(tf.where(label_map > 0, 1, 0),
                                                                           tf.float32)
         return dataset_dict
     
@@ -235,8 +236,8 @@ class DataProcessing:
         for i in range(max_idx):
             edge = np.load(self.paths[ds_type]['EDGE_FLOW'] + '/{:04}.npy'.format(i))
             edge = edge[1, :, :, :].astype(np.float32)
-            edge[:, :, 0] = edge[:, :, 0] * self.output_shape[0]
-            edge[:, :, 1] = edge[:, :, 1] * self.output_shape[1]
+            edge[:, :, 0] = edge[:, :, 0] * self.input_shape_mask[0]
+            edge[:, :, 1] = edge[:, :, 1] * self.input_shape_mask[1]
             edge_stacked.append(edge)
         edges = np.stack(edge_stacked, axis=0)
         edge_dataset = tf.data.Dataset.from_tensor_slices(edges)

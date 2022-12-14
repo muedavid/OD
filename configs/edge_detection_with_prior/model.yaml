@@ -1,4 +1,4 @@
-TRAIN_MODEL: true
+TRAIN_MODEL: false
 EPOCHS: 120
 
 NAME: edge_detection_with_prior
