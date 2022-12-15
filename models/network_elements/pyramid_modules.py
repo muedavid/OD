@@ -268,7 +268,7 @@ def flow_edge(image_layer, edge_layer):
     edge_width_height = int(edge_layer.shape[1] / 20) + 1
     edge_width_width = int(edge_layer.shape[2] / 12) + 1
     ones = tf.ones(shape=(edge_width_height, edge_width_width, 1, 1))
-    edge_down = tf.nn.conv2d(edge_layer, ones, strides=[1, 1, 1, 1], padding="SAME", antialias=True)
+    edge_down = tf.nn.conv2d(edge_layer, ones, strides=[1, 1, 1, 1], padding="SAME")
     edge_down = tf.where(edge_down >= 1, 1, 0)
     edge_down = tf.cast(tf.image.resize(edge_down, (20, 12), method="nearest"), tf.float32)
     
@@ -276,7 +276,8 @@ def flow_edge(image_layer, edge_layer):
     image_layer = utils.convolution_block(image_layer, name="image_2", kernel_size=3, strides=1, num_filters=6)
     image_layer_out = utils.convolution_block(image_layer, name="image_out_1", kernel_size=3, num_filters=6)
     image_layer_out = tf.keras.layers.Concatenate(axis=-1)([image_layer_out, edge_layer])
-    image_layer_out = utils.convolution_block(image_layer_out, name="image_out_2", kernel_size=5, num_filters=6, separable=True)
+    image_layer_out = utils.convolution_block(image_layer_out, name="image_out_2", kernel_size=5, num_filters=6,
+                                              separable=True)
     image_layer_out = utils.convolution_block(image_layer_out, name="image_out_3", kernel_size=3, num_filters=2,
                                               RELU=False, BN=False)
     image_layer = utils.convolution_block(image_layer, name="image_3", kernel_size=3, strides=1, num_filters=1,
@@ -317,44 +318,41 @@ def flow_edge(image_layer, edge_layer):
                     shifted.append(image_shifted_4)
     shifted_concat = tf.keras.layers.Concatenate(axis=-1)(shifted)
     correlation = shifted_concat * edge_layer
-    correlation = tf.keras.layers.BatchNormalization()(correlation)
-    
-    flow_max = tf.keras.layers.MaxPool2D((8, 8), strides=2, padding="SAME")(correlation)
+    flow_max = tf.keras.layers.MaxPool2D((4, 4), strides=2, padding="SAME")(correlation)
     flow_avg = tf.keras.layers.AveragePooling2D((4, 4), strides=2)(flow_max)
-    flow = utils.convolution_block(flow_avg, num_filters=len(shifted), strides=1, kernel_size=3, separable=True,
-                                   name="flow_1", padding="VALID")
-    flow = utils.convolution_block(flow, num_filters=len(shifted), strides=2, kernel_size=3, separable=True,
-                                   name="flow_2", BN=True, padding="VALID")
-    flow = utils.convolution_block(flow, num_filters=len(shifted), strides=1, kernel_size=5, separable=True,
-                                   name="flow_3", BN=True, padding="VALID")
-    flow = utils.convolution_block(flow, num_filters=len(shifted), strides=1, kernel_size=5, separable=True,
-                                   name="flow_4", BN=True, padding="VALID")
-    flow = utils.convolution_block(flow, num_filters=6, strides=1, kernel_size=1, separable=True,
-                                   name="flow_5", BN=True, padding="VALID")
-    flow = tf.image.resize(flow, (22, 14))
-
-    flow_avg = utils.convolution_block(flow_avg, num_filters=len(shifted), kernel_size=1,
-                                       name="flow_avg_1", BN=False, padding="VALID")
-    flow_avg = tf.keras.layers.MaxPool2D((4, 4), strides=2)(flow_avg)
-    flow_avg = utils.convolution_block(flow_avg, num_filters=len(shifted), kernel_size=3, name="flow_avg_2", BN=True,
-                                       padding="VALID")
-    flow_avg = utils.convolution_block(flow_avg, num_filters=len(shifted), kernel_size=3, separable=1,
-                                       name="flow_avg_3", BN=True, padding="VALID")
-    flow_avg = utils.convolution_block(flow_avg, num_filters=12, kernel_size=1, separable=1,
-                                       name="flow_avg_4", BN=True, padding="VALID")
-    flow_avg = utils.convolution_block(flow_avg, num_filters=6, kernel_size=1, separable=1,
-                                       name="flow_avg_5", BN=True, padding="VALID")
-    flow_avg = tf.image.resize(flow_avg, (22, 14))
-    
-    flow = tf.keras.layers.Concatenate(axis=-1)([flow_avg, flow])
-    flow = utils.convolution_block(flow, num_filters=6, strides=1, kernel_size=3, separable=True,
-                                   name="flow_out_1", padding="VALID", BN=False)
-    flow = flow * edge_down
-    flow = utils.convolution_block(flow, num_filters=6, strides=1, kernel_size=1, separable=True,
-                               name="flow_out_2", padding="VALID", BN=False)
-    flow_out = tf.keras.layers.Conv2D(filters=2, padding="SAME", kernel_size=1, name="out_flow")(flow)
+    flow_max = tf.keras.layers.MaxPool2D((2, 2), strides=1, padding="SAME")(flow_avg)
+    flow_avg = tf.keras.layers.AveragePooling2D((2, 2), strides=1)(flow_max)
+    flow_max_norm = tf.keras.layers.LayerNormalization(axis=-1)(flow_avg)
+    flow_max = tf.keras.layers.Concatenate(axis=-1)([flow_avg, flow_max_norm])
+    flow = utils.convolution_block(flow_max, num_filters=len(shifted), strides=1, kernel_size=3,
+                                   name="flow_1", padding="VALID", BN=False)
+    flow = utils.convolution_block(flow, num_filters=len(shifted), strides=1, kernel_size=3, depthwise=True,
+                                   name="flow_2", BN=False, padding="VALID")
+    flow = utils.convolution_block(flow, num_filters=len(shifted), strides=1, kernel_size=3, depthwise=True,
+                                   name="flow_3", BN=False, padding="VALID")
+    flow_o = tf.keras.layers.LayerNormalization(axis=-1)(flow)
+    flow_o = tf.keras.layers.Concatenate(axis=-1)([flow, flow_o])
+    flow = utils.convolution_block(flow_o, num_filters=len(shifted), strides=1, kernel_size=1,
+                                   name="flow_4", BN=False, padding="VALID")
+    flow = utils.convolution_block(flow, num_filters=len(shifted), strides=1, kernel_size=3, depthwise=True,
+                                   name="flow_5", BN=False, padding="VALID")
+    flow = utils.convolution_block(flow, num_filters=len(shifted), strides=1, kernel_size=1,
+                                   name="flow_7", BN=False, padding="VALID")
+    flow_o1 = utils.convolution_block(flow, num_filters=len(shifted), strides=1, kernel_size=3,
+                                   name="flow_8", BN=False, padding="VALID")
+    flow_x = utils.convolution_block(flow_o1, num_filters=8, strides=1, kernel_size=1,
+                                     name="flow_9", BN=False, padding="VALID")
+    flow_x = utils.convolution_block(flow_x, num_filters=1, strides=1, kernel_size=1, separable=True,
+                                     name="flow_10", BN=False, padding="VALID", RELU=False)
+    flow_y = utils.convolution_block(flow_o1, num_filters=8, strides=1, kernel_size=1, separable=True,
+                                     name="flow_11", BN=False, padding="VALID")
+    flow_y = utils.convolution_block(flow_y, num_filters=1, strides=1, kernel_size=1, separable=True,
+                                     name="flow_12", BN=False, padding="VALID", RELU=False)
+    flow = tf.keras.layers.Concatenate(axis=-1)([flow_x, flow_y])
+    flow = tf.image.resize(flow, (20, 12), method="bilinear")
+    flow_out = tf.keras.layers.Multiply(name="out_flow")([flow, edge_down])
     
     img_out = tf.keras.layers.Concatenate(axis=-1)([image_layer, image_layer_out])
     img_out = tf.keras.layers.Conv2D(filters=1, kernel_size=1)(img_out)
     img_out = tf.keras.layers.Activation(activation="sigmoid", name="out_edge")(img_out)
-    return flow_out, img_out
+    return flow_out, img_out, flow_o, flow_o1

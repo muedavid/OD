@@ -130,9 +130,9 @@ class EdgeDetector:
                                                         output_layer=self.cfg["BACKBONE"]["OUTPUT_IDS"],
                                                         trainable_idx=self.cfg["BACKBONE"]["TRAIN_IDX"])
     
-        output_flow, output_image = pyramid_modules.flow_edge(backbone.output[-1], input_edge)
+        output_flow, output_image, flow_max, flow_x = pyramid_modules.flow_edge(backbone.output[-1], input_edge)
     
         model = keras.Model(inputs=[backbone.input, input_edge],
-                            outputs=[output_flow, output_image])
+                            outputs=[output_flow, output_image, flow_max, flow_x])
     
         return model

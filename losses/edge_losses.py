@@ -124,7 +124,7 @@ class FlowLoss(tf.keras.losses.Loss):
         loss = mult * large_loss * tf.abs(y_true - y_pred) + \
                mult / self.large_loss_threshold * (1 - large_loss) * tf.math.square(y_true - y_pred)
         loss = loss * y_true_mask
-        return 10*tf.reduce_mean(tf.reduce_sum(loss, axis=-1)) # + tf.reduce_mean(smoothing_loss)
+        return 10*tf.reduce_sum(loss)/(tf.reduce_sum(y_true_mask)+1) # + tf.reduce_mean(smoothing_loss)
     
     def get_config(self):
         base_config = super().get_config()
