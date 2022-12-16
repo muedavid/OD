@@ -2,7 +2,8 @@ import tensorflow as tf
 from models.network_elements import utils
 
 
-def pyramid_module_small_backbone(pyramid_input, num_filters=5):
+def pyramid_module_small_backbone(pyramid_input, num_classes, num_filters_per_class):
+    num_filters = num_classes * num_filters_per_class
     x = utils.convolution_block(pyramid_input, num_filters=2 * num_filters, kernel_size=3, strides=1,
                                 separable=True, name="skip_1")
     x_1 = utils.convolution_block(x, num_filters=2 * num_filters, kernel_size=3, strides=1,
@@ -74,7 +75,8 @@ def pyramid_module(pyramid_input, num_filters=12):
     return x
 
 
-def daspp_efficient(daspp_input, num_filters=12):
+def daspp_efficient(daspp_input, num_classes, num_filters_per_class):
+    num_filters = num_classes * num_filters_per_class
     daspp_input = utils.convolution_block(daspp_input, num_filters, kernel_size=3, dilation_rate=1, strides=2,
                                           separable=True)
     
@@ -339,7 +341,7 @@ def flow_edge(image_layer, edge_layer):
     flow = utils.convolution_block(flow, num_filters=len(shifted), strides=1, kernel_size=1,
                                    name="flow_7", BN=False, padding="VALID")
     flow_o1 = utils.convolution_block(flow, num_filters=len(shifted), strides=1, kernel_size=3,
-                                   name="flow_8", BN=False, padding="VALID")
+                                      name="flow_8", BN=False, padding="VALID")
     flow_x = utils.convolution_block(flow_o1, num_filters=8, strides=1, kernel_size=1,
                                      name="flow_9", BN=False, padding="VALID")
     flow_x = utils.convolution_block(flow_x, num_filters=1, strides=1, kernel_size=1, separable=True,
@@ -356,3 +358,33 @@ def flow_edge(image_layer, edge_layer):
     img_out = tf.keras.layers.Conv2D(filters=1, kernel_size=1)(img_out)
     img_out = tf.keras.layers.Activation(activation="sigmoid", name="out_edge")(img_out)
     return flow_out, img_out, flow_o, flow_o1
+
+
+def daspp(daspp_input, num_filters=20):
+    dims = daspp_input.shape
+    
+    out_1 = utils.convolution_block(daspp_input, num_filters=num_filters, kernel_size=3, dilation_rate=1, BN=True,
+                                    separable=True, RELU=True, name="daspp_1")
+    out_3 = utils.convolution_block(daspp_input, num_filters=num_filters, kernel_size=3, dilation_rate=3,
+                                    separable=True, BN=True, RELU=True, name="daspp_3_dilated")
+    out_3 = utils.convolution_block(out_3, num_filters=num_filters, kernel_size=3, dilation_rate=1, separable=True,
+                                    BN=True, RELU=True, name="daspp_3_conv")
+    out_6 = utils.convolution_block(daspp_input, num_filters=num_filters, kernel_size=3, dilation_rate=6,
+                                    separable=True, BN=True, RELU=True, name="daspp_6_dilated")
+    out_6 = utils.convolution_block(out_6, num_filters=num_filters, kernel_size=3, dilation_rate=1, separable=True,
+                                    BN=True, RELU=True, name="daspp_6_conv")
+    out_9 = utils.convolution_block(daspp_input, num_filters=num_filters, kernel_size=3, dilation_rate=9,
+                                    separable=True, BN=True, RELU=True, name="daspp_9_dilated")
+    out_9 = utils.convolution_block(out_9, num_filters=num_filters, kernel_size=3, dilation_rate=1, separable=True,
+                                    BN=True, RELU=True, name="daspp_9_conv")
+    
+    out = tf.keras.layers.GlobalAveragePooling2D(keepdims=True)(daspp_input)
+    out = utils.convolution_block(out, num_filters=num_filters, kernel_size=1, dilation_rate=1, BN=True, RELU=True,
+                                  name="daspp_avg")
+    out_pool = tf.image.resize(out, (dims[1], dims[2]))
+    
+    daspp_output = tf.keras.layers.Concatenate(axis=-1)([out_pool, out_1, out_3, out_6, out_9, daspp_input])
+    
+    daspp_output = utils.convolution_block(daspp_output, kernel_size=1, name="daspp_out")
+    
+    return daspp_output

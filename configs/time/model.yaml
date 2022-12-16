@@ -1,10 +1,11 @@
 TRAIN_MODEL: true
-EPOCHS: 30
+EPOCHS: 10
 
-NAME: edge_detection_without_prior
+NAME: time
 SAVE: true
-INPUT_SHAPE_IMG: [ 640, 360 ]
-OUTPUT_SHAPE: [ 320, 180 ]
+INPUT_SHAPE_IMG: [ 160, 90 ]
+OUTPUT_SHAPE: [ 160, 90 ]
+INPUT_SHAPE_MASK: [ 160, 90 ]
 SEED: null
 PARSER: false
 CONVERT_TO_TFLITE: true
@@ -12,14 +13,13 @@ CONVERT_TO_TFLITE: true
 # Model type: defines the task which is solved by the model ['edge detector']
 MODEL:
   TYPE: 'edge detector'
-  DILATION: false
 
 BACKBONE:
   NAME: MobileNetV2
   ALPHA: 0.35
   WEIGHTS: imagenet
-  # OUTPUT_IDX: &idx 5
-  # OUTPUT_IDS: [1, 2, 3, *idx]
+  # OUTPUT_IDX: &idx 3
+  # OUTPUT_IDS: [1, 2, *idx]
   OUTPUT_IDX: &idx 2
   OUTPUT_IDS: [1, *idx]
   TRAIN_IDX: null
@@ -47,8 +47,8 @@ LOSS:
   flow_scene: null
 
 LR:
-  START: 0.015
-  END: 0.0005
+  START:  0.001
+  END:    0.001
   POWER: 0.9
 
 CALLBACKS:

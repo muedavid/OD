@@ -48,7 +48,7 @@ LOSS:
 
 LR:
   START:  0.015
-  END:    0.0005
+  END:    0.001
   POWER: 0.9
 
 CALLBACKS:

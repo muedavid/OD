@@ -86,40 +86,6 @@ def edge_shifted_params(image_layer, edge_layer):
     return output_edge, dense_x, dense_y
 
 
-def daspp(daspp_input, num_filters=12):
-    dims = daspp_input.shape
-    
-    out_1 = utils.convolution_block(daspp_input, num_filters=num_filters, kernel_size=3, dilation_rate=1, BN=True,
-                                    RELU=True, name="daspp_1")
-    out_3 = utils.convolution_block(daspp_input, num_filters=num_filters, kernel_size=3, dilation_rate=3,
-                                    separable=True, BN=True, RELU=True, name="daspp_3_dilated")
-    out_3 = utils.convolution_block(out_3, num_filters=num_filters, kernel_size=3, dilation_rate=1, separable=True,
-                                    BN=True, RELU=True, name="daspp_3_conv")
-    out_6 = utils.convolution_block(daspp_input, num_filters=num_filters, kernel_size=3, dilation_rate=6,
-                                    separable=True, BN=True, RELU=True, name="daspp_6_dilated")
-    out_6 = utils.convolution_block(out_6, num_filters=num_filters, kernel_size=3, dilation_rate=1, separable=True,
-                                    BN=True, RELU=True, name="daspp_6_conv")
-    out_9 = utils.convolution_block(daspp_input, num_filters=num_filters, kernel_size=3, dilation_rate=9,
-                                    separable=True, BN=True, RELU=True, name="daspp_9_dilated")
-    out_9 = utils.convolution_block(out_9, num_filters=num_filters, kernel_size=3, dilation_rate=1, separable=True,
-                                    BN=True, RELU=True, name="daspp_9_conv")
-    out_18 = utils.convolution_block(daspp_input, kernel_size=3, dilation_rate=18, separable=True, BN=True, RELU=True,
-                                     name="daspp_18_dilated")
-    out_18 = utils.convolution_block(out_18, kernel_size=3, dilation_rate=1, separable=True, BN=True, RELU=True,
-                                     name="daspp_18_conv")
-    
-    out = tf.keras.layers.GlobalAveragePooling2D(keepdims=True)(daspp_input)
-    out = utils.convolution_block(out, num_filters=num_filters, kernel_size=3, dilation_rate=1, BN=True, RELU=True,
-                                  name="daspp_avg")
-    out_pool = tf.image.resize(out, (dims[1], dims[2]))
-    
-    x = tf.keras.layers.Concatenate(axis=-1)([out_pool, out_1, out_3, out_6, out_9, out_18, daspp_input])
-    
-    x = utils.convolution_block(x, kernel_size=1, name="daspp_out")
-    
-    return x
-
-
 def edge_shifted(image_layer, edge_layer):
     filter_num = 10
     
