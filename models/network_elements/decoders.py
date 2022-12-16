@@ -25,6 +25,7 @@ def sged_decoder(decoder_input, side, output_dims, num_classes, num_filters_per_
 def decoder_small(decoder_input, output_dims, num_classes, num_filters_per_class):
     num_filters = num_filters_per_class*num_classes
     x = tf.image.resize(decoder_input, size=(output_dims[0], output_dims[1]), method="bilinear")
+    # test if it can be commented out
     x_1 = utils.convolution_block(x, num_filters=num_filters, kernel_size=3, dilation_rate=1, separable=True, BN=True,
                                   RELU=True, name="decoder_1")
     return x_1

@@ -30,9 +30,9 @@ def convolution_block(block_input, name=None, num_filters=1, kernel_size=3, dila
         x = tf.keras.layers.ReLU(name=layer_name)(x)
     return x
 
-def mobile_net_v2_inverted_residual(input_layer, depth_multiplier, output_depht_multiplier=1):
+def mobile_net_v2_inverted_residual(input_layer, depth_multiplier, output_depht_multiplier=1, strides=1):
     expand = convolution_block(input_layer, num_filters=input_layer.shape[-1] * depth_multiplier, kernel_size=1)
-    depth = convolution_block(expand, depthwise=True, kernel_size=3)
+    depth = convolution_block(expand, depthwise=True, kernel_size=3, strides=strides)
     output = convolution_block(depth, num_filters=input_layer.shape[-1] * output_depht_multiplier, RELU=False,
                                kernel_size=1)
     return output

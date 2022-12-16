@@ -388,3 +388,20 @@ def daspp(daspp_input, num_filters=20):
     daspp_output = utils.convolution_block(daspp_output, kernel_size=1, name="daspp_out")
     
     return daspp_output
+
+
+def viot_coarse_features(input_layer, num_classes, num_filters_per_class):
+    num_filters = num_classes * num_filters_per_class
+    
+    image_1 = utils.convolution_block(input_layer, RELU=False, num_filters=num_filters, kernel_size=3)
+    image_1 = utils.mobile_net_v2_inverted_residual(image_1, depth_multiplier=4, strides=2)
+    
+    image_2 = utils.convolution_block(image_1, kernel_size=1, strides=1, num_filters=6 * num_filters)
+    image_3 = utils.convolution_block(image_2, kernel_size=5, depthwise=True)
+    image_4 = utils.convolution_block(image_3, kernel_size=3, depthwise=True)
+    image_5 = utils.convolution_block(image_4, kernel_size=1, num_filters=num_filters, RELU=False)
+    
+    # TODO(DAVID) Maybe nearest neighbour sampling
+    out = tf.image.resize(image_5, (input_layer.shape[1], input_layer.shape[2]))
+    
+    return out
