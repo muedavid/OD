@@ -52,15 +52,15 @@ TRAIN:
 
   DATA_AUG:
     blur: false
-    brightness: 0.1
-    contrast_factor: 0.9
+    brightness: 0.25
+    contrast_factor: 0.8
     gaussian_value: 0.0
-    hue: 0.03
-    noise_std: 0.0
-    saturation: 0.9
+    hue: 0.05
+    noise_std: 0
+    saturation: 0.8
     sigma: 1.0
-    strength_spot: 0.1
-    value: 0.1
+    strength_spot: 0.3
+    value: 0.3
 
 IMG_ONLY:
   PATH: 'Real'

@@ -2,14 +2,15 @@ import tensorflow as tf
 from models.network_elements import utils
 
 
-def viot_side_feature(x, output_dims, num_classes, num_filters_per_class, method="bilinear", name=None):
+def viot_side_feature(x1, output_dims, num_classes, num_filters_per_class, method="bilinear"):
     num_filters = num_filters_per_class * num_classes
-    x = utils.convolution_block(x, num_filters=num_filters, kernel_size=1, BN=True, RELU=False)
-    x = utils.mobile_net_v2_inverted_residual(x, depth_multiplier=3)
     
-    if x.shape[1] != output_dims[0]:
-        x = tf.image.resize(x, (output_dims[0], output_dims[1]), method=method)
-    return x
+    x1 = utils.convolution_block(x1, kernel_size=3, separable=True, num_filters=2*num_filters)
+    x1 = utils.convolution_block(x1, kernel_size=3, separable=True, num_filters=2*num_filters)
+    x1 = utils.convolution_block(x1, kernel_size=1, separable=True, num_filters=num_filters)
+    if x1.shape[1] != output_dims[0]:
+        x1 = tf.image.resize(x1, output_dims)
+    return x1
 
 
 def side_feature(x, output_dims, num_classes, num_filters_per_class, method="bilinear", name=None):
@@ -49,6 +50,13 @@ def casenet_side_feature(x, channels, kernel_size_transpose, stride_transpose, o
 def lite_edge_side_feature_extraction(side, output_shape):
     side = utils.convolution_block(side, num_filters=20, separable=True)
     side = utils.convolution_block(side, num_filters=1, kernel_size=1)
+    side_output = tf.image.resize(side, output_shape)
+    
+    return side_output
+
+
+def FENet_side_feature_extraction(side, output_shape):
+    side = utils.convolution_block(side, num_filters=1, separable=True)
     side_output = tf.image.resize(side, output_shape)
     
     return side_output

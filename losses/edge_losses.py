@@ -63,13 +63,14 @@ class FocalLossEdges(tf.keras.losses.Loss):
         self.edge_loss_weighting = edge_loss_weighting
         self.power = power
     
-    @tf.function
+    # @tf.function
     def call(self, y_true, y_pred):
         dtype = tf.float32
         power = tf.cast(self.power, dtype=dtype)
         y_true = tf.cast(y_true, dtype=dtype)
         
         one = tf.constant(1.0, dtype=tf.float32)
+        y_pred = tf.clip_by_value(y_pred, 0.005, 0.995)
         one_sig_out = y_pred
         zero_sig_out = one - one_sig_out
         
@@ -83,9 +84,9 @@ class FocalLossEdges(tf.keras.losses.Loss):
                                                    self.max_edge_loss_weighting)
             edge_loss_weighting = tf.cast(edge_loss_weighting, dtype)
             
-            loss = - edge_loss_weighting * y_true * tf.math.pow(1 - one_sig_out, power) * tf.math.log(
-                tf.clip_by_value(one_sig_out, 1e-10, 1000)) - (1 - edge_loss_weighting) * (1 - y_true) * tf.math.pow(
-                1 - zero_sig_out, power) * tf.math.log(tf.clip_by_value(zero_sig_out, 1e-10, 1000))
+            loss = - edge_loss_weighting * y_true * tf.math.pow(zero_sig_out, power) * tf.math.log(
+                tf.clip_by_value(one_sig_out, 1e-10, 1000)) - (1.0 - edge_loss_weighting) * (1.0 - y_true) * tf.math.pow(
+                one_sig_out, power) * tf.math.log(tf.clip_by_value(zero_sig_out, 1e-10, 1000))
         else:
             loss = - y_true * tf.math.pow(1 - one_sig_out, power) * \
                    tf.math.log(tf.clip_by_value(one_sig_out, 1e-10, 1000)) - \

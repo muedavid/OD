@@ -40,19 +40,19 @@ def augment_mapping(datapoint, rng, aug_param):
     seed = rng.make_seeds(2)[0]
 
     # convert to HSV
-    datapoint['in_img'] = tf.image.convert_image_dtype(datapoint['in_img'], tf.float32)
-    datapoint['in_img'] = tf.image.rgb_to_hsv(datapoint['in_img'])
-
-    mask = tf.py_function(value_augmentation_spot_light,
-                          inp=[datapoint['in_img'].shape, aug_param["value"], aug_param["strength_spot"]], Tout=tf.float32)
-    gaussian_noise = tf.random.stateless_uniform([1], seed, minval=0, maxval=aug_param["gaussian_value"])
-    mask = tf.keras.layers.GaussianNoise(gaussian_noise)(mask, training=True)
-    datapoint['in_img'] = mask + datapoint['in_img']
-    datapoint['in_img'] = tf.clip_by_value(datapoint['in_img'], 0.0, 1.0)
-
-    # convert back to RGB of uint8: [0,255]
-    datapoint['in_img'] = tf.image.hsv_to_rgb(datapoint['in_img'])
-    datapoint['in_img'] = tf.image.convert_image_dtype(datapoint['in_img'], tf.uint8, saturate=True)
+    # datapoint['in_img'] = tf.image.convert_image_dtype(datapoint['in_img'], tf.float32)
+    # datapoint['in_img'] = tf.image.rgb_to_hsv(datapoint['in_img'])
+    #
+    # mask = tf.py_function(value_augmentation_spot_light,
+    #                       inp=[datapoint['in_img'].shape, aug_param["value"], aug_param["strength_spot"]], Tout=tf.float32)
+    # gaussian_noise = tf.random.stateless_uniform([1], seed, minval=0, maxval=aug_param["gaussian_value"])
+    # mask = tf.keras.layers.GaussianNoise(gaussian_noise)(mask, training=True)
+    # datapoint['in_img'] = mask + datapoint['in_img']
+    # datapoint['in_img'] = tf.clip_by_value(datapoint['in_img'], 0.0, 1.0)
+    #
+    # # convert back to RGB of uint8: [0,255]
+    # datapoint['in_img'] = tf.image.hsv_to_rgb(datapoint['in_img'])
+    # datapoint['in_img'] = tf.image.convert_image_dtype(datapoint['in_img'], tf.uint8, saturate=True)
 
     # seed = rng.make_seeds(2)[0]
     # for key in datapoint.keys():
