@@ -23,14 +23,12 @@ def viot_fusion_module(dec_edge, side_1, side_2, num_classes, num_filters_per_cl
 def viot_fusion_module_prior (dec_1, side_1, side_2, num_classes, num_filters_per_class, output_name="out_edge"):
     # Note: Avoided indexing (memory consumption, avoided BN as values should start being meaningful as what they really are)
     num_filters = num_filters_per_class * num_classes
-    side = tf.keras.layers.Concatenate()([side_1, side_2])
+    side = tf.keras.layers.Concatenate()([side_1, side_2, dec_1])
+    side = utils.convolution_block(side, kernel_size=1, num_filters=3*num_filters)
+    side = utils.convolution_block(side, kernel_size=1, num_filters=2*num_filters)
+    side = utils.convolution_block(side, kernel_size=3, num_filters=2*num_filters, separable=True)
     side = utils.convolution_block(side, kernel_size=1, num_filters=num_filters)
-    fusion_1 = dec_1 * side
-    fusion_2 = utils.convolution_block(fusion_1, kernel_size=3, separable=True, num_filters=2*num_filters)
-    fusion_3 = utils.convolution_block(fusion_2, kernel_size=1, num_filters=num_filters)
-    fusion_3 = utils.convolution_block(fusion_3, kernel_size=1, separable=True, num_filters=num_filters, BN=False)
-    
-    output = utils.convolution_block(fusion_3, BN=False, RELU=False, num_filters=1, kernel_size=1)
+    output = utils.convolution_block(side, BN=False, RELU=False, num_filters=1, kernel_size=1)
     return tf.keras.layers.Activation(activation='sigmoid', name=output_name)(output)
 
 

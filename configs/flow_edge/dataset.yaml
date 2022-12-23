@@ -9,18 +9,24 @@ MASK_TYPE:
   cont: 1
   vert: 1
 
+# mask encoding types: 0: INSTANCE, 1: CATEGORY, 2: BINARY
 in:
-  edge: true
-  vert: false
-  cont: false
-  prior_img: false
+  img:
+    name: "in_img"
+    shape: [ 640, 360 ]
+  edge: null
+  contour: null
+  segmentation: null
+  prior_img: null
 
 out:
-  edge: true
-  vert: false
-  cont: false
-  flow_edge: true
-  flow_scene: false
+  edge:
+    name: "out_edge"
+    mask_encoding: 2
+    shape: [ 320, 180 ]
+  contour: null
+  segmentation: null
+  flow: null
 
 # As already implemented just as additional information and example on how to load
 VERT_LIST: false

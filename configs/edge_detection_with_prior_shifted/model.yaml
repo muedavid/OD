@@ -3,9 +3,6 @@ EPOCHS: 30
 
 NAME: edge_detection_with_prior_shifted
 SAVE: true
-INPUT_SHAPE_IMG: [ 320, 180 ]
-OUTPUT_SHAPE: [ 320, 180 ]
-INPUT_SHAPE_MASK: [ 320, 180 ]
 SEED: null
 PARSER: false
 CONVERT_TO_TFLITE: true

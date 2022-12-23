@@ -1,11 +1,8 @@
 TRAIN_MODEL: true
-EPOCHS: 100
+EPOCHS: 50
 
 NAME: edge_detection_with_prior
 SAVE: true
-INPUT_SHAPE_IMG: [ 320, 180 ]
-OUTPUT_SHAPE: [ 320, 180 ]
-INPUT_SHAPE_MASK: [ 80, 45 ]
 SEED: null
 PARSER: false
 CONVERT_TO_TFLITE: true
@@ -38,17 +35,17 @@ LOSS:
     focal:
       apply: true
       edge_loss_weighting: true
-      min_edge_loss_weighting: 0.4
-      max_edge_loss_weighting: 0.6
-      power: 0.2
+      min_edge_loss_weighting: 0.35
+      max_edge_loss_weighting: 0.65
+      power: 0.5
   vert: null
   cont: null
   flow_edge: null
   flow_scene: null
 
 LR:
-  START:  0.005
-  END:    0.0001
+  START:  0.01
+  END:    0.0005
   POWER: 0.9
 
 CALLBACKS:

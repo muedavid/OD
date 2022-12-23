@@ -3,9 +3,6 @@ EPOCHS: 200
 
 NAME: flow_edge
 SAVE: true
-INPUT_SHAPE_IMG: [ 640, 360 ]
-OUTPUT_SHAPE: [ 160, 90 ]
-INPUT_SHAPE_MASK: [ 160, 90 ]
 SEED: null
 PARSER: false
 CONVERT_TO_TFLITE: true

@@ -28,9 +28,9 @@ class Model:
         
         self.train_model = self.cfg['TRAIN_MODEL']
     
-    def get_neural_network_model(self, num_classes):
+    def get_neural_network_model(self, input_data_cfg, output_data_cfg):
         if self.cfg['MODEL']['TYPE'] == 'edge detector':
-            model = edge_detector.EdgeDetector(self.cfg, num_classes=num_classes)
+            model = edge_detector.EdgeDetector(self.cfg, input_data_cfg, output_data_cfg)
             return model.get_model()
     
     def get_best_model_from_checkpoints(self):

@@ -5,7 +5,6 @@ import os
 import os.path as osp
 import numpy as np
 import json
-import yaml
 
 import data_processing.ds_augmentation as ds_aug
 import utils.tools as tools
@@ -23,17 +22,16 @@ class DataProcessing:
     key = DsKey()
     paths = dict()
     ds_inf = dict()
-    vertices = collections.defaultdict(list)
-    vert_maps = collections.defaultdict(list)
-    vert_list = dict()
+    # vertices = collections.defaultdict(list)
+    # vert_maps = collections.defaultdict(list)
+    # vert_list = dict()
     inputs = list()
     outputs_ann = list()
-    num_classes = dict()
+    num_classes = collections.defaultdict(dict)
+    input_data_cfg = dict()
+    output_data_cfg = dict()
     
-    def __init__(self, input_shape_img, output_shape, config_path, input_shape_mask=None):
-        self.input_shape_img = input_shape_img
-        self.input_shape_mask = input_shape_mask
-        self.output_shape = output_shape
+    def __init__(self, config_path):
         self.cfg = tools.config_loader(osp.join(config_path, 'dataset.yaml'))
         self.input_output_keys()
         self.rng = tf.random.Generator.from_seed(123, alg='philox')
@@ -69,10 +67,10 @@ class DataProcessing:
                     else:
                         self.ds_inf[key_ds][key] = ds_inf_tmp[key]
             
-            if self.cfg['VERT_LIST'] and key_ds != 'IMG_ONLY':
-                with open(self.ds_inf['paths']['VERT'], 'r') as file:
-                    self.vert_list[key_ds] = yaml.safe_load(file)
-                file.close()
+            # if self.cfg['VERT_LIST'] and key_ds != 'IMG_ONLY':
+            #     with open(self.ds_inf['paths']['VERT'], 'r') as file:
+            #         self.vert_list[key_ds] = yaml.safe_load(file)
+            #     file.close()
     
     def load_dataset(self, ds_type, normalize=True):
         max_idx = min(self.ds_inf[ds_type]["info"]["num_frames"] - 1, self.cfg[ds_type]["MAX_IMG"] - 1)
@@ -80,7 +78,7 @@ class DataProcessing:
         dataset = tf.data.Dataset.from_tensor_slices(range(max_idx))
         dataset = dataset.map(lambda x: self.parse_data(x, ds_type), num_parallel_calls=tf.data.experimental.AUTOTUNE)
         
-        if (self.cfg['out']['flow_edge'] or self.cfg['out']['flow_scene']) and ds_type != "IMG_ONLY":
+        if self.cfg['out']['flow'] and ds_type != "IMG_ONLY":
             edge_dataset = self.load_flow_ds(ds_type, max_idx)
             dataset_combined = tf.data.Dataset.zip((dataset, edge_dataset))
             dataset = dataset_combined.map(self.combine_ds, num_parallel_calls=tf.data.experimental.AUTOTUNE)
@@ -103,6 +101,9 @@ class DataProcessing:
             dataset = dataset.batch(self.cfg[ds_type]["BATCH_SIZE"])
         if self.cfg[ds_type]["PREFETCH"]:
             dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        
+        self.set_input_output_data_cfg()
+        
         return dataset, image_count
     
     def parse_data(self, img_idx, ds_type):
@@ -116,9 +117,9 @@ class DataProcessing:
         img_path = tf.strings.join([img_base_path, sep_str, img_idx_str, end_str])
         image = tf.io.read_file(img_path)
         image = tf.image.decode_png(image, channels=3)
-        image = tf.image.resize(image, self.input_shape_img, method='bilinear')
+        image = tf.image.resize(image, self.cfg["in"]["img"]["shape"], method='bilinear')
         image = tf.cast(image, tf.uint8)
-        dataset_dict['in_img'] = image
+        dataset_dict[self.cfg["in"]["img"]["name"]] = image
         
         if ds_type != 'IMG_ONLY':
             if self.cfg["in"]["prior_img"]:
@@ -126,9 +127,9 @@ class DataProcessing:
                 img_path = tf.strings.join([img_base_path, sep_str, img_idx_str, end_str])
                 image = tf.io.read_file(img_path)
                 image = tf.image.decode_png(image, channels=3)
-                image = tf.image.resize(image, self.input_shape_img, method='bilinear')
+                image = tf.image.resize(image, self.cfg["in"]["prior_img"]["shape"], method='bilinear')
                 image = tf.cast(image, tf.uint8)
-                dataset_dict['in_prior_img'] = image
+                dataset_dict[self.cfg["in"]["prior_img"]["name"]] = image
             
             # mask input:
             mask_base_path = tf.constant(self.paths[ds_type]['PRIOR_ANN'], dtype=tf.string)
@@ -138,7 +139,8 @@ class DataProcessing:
             for mask_type in self.inputs:
                 idx = self.ds_inf[ds_type]['info']['mask'][mask_type]
                 mask = mask_input[:, :, idx:idx + 1]
-                dataset_dict['in_' + mask_type] = self.preprocess_mask(mask, ds_type, mask_type, self.input_shape_mask)
+                dataset_dict[self.cfg["in"][mask_type]["name"]] = \
+                    self.preprocess_mask(mask, ds_type, mask_type, True)
             
             # mask output:
             mask_base_path = tf.constant(self.paths[ds_type]['ANN'], dtype=tf.string)
@@ -149,47 +151,45 @@ class DataProcessing:
             for mask_type in self.outputs_ann:
                 idx = self.ds_inf[ds_type]['info']['mask'][mask_type]
                 mask = mask_output[:, :, idx:idx + 1]
-                dataset_dict['out_' + mask_type] = self.preprocess_mask(mask, ds_type, mask_type, self.output_shape)
+                dataset_dict[self.cfg["out"][mask_type]["name"]] = \
+                    self.preprocess_mask(mask, ds_type, mask_type, False)
         
         return dataset_dict
     
-    def preprocess_mask(self, mask, ds_type, mask_type, mask_size):
+    def preprocess_mask(self, mask, ds_type, mask_type, cfg_input_key):
         # Python side effect ok as value does not change
+        cfg_first_key = "in" if cfg_input_key else "out"
+        cfg_dataset = self.cfg[cfg_first_key][mask_type]
         
         # Binary: edge or not edge
-        if self.cfg['MASK_TYPE'][mask_type] == 2:
+        if cfg_dataset["mask_encoding"] == 2:
             mask = tf.cast(mask, tf.int32)
             mask = tf.where(mask > 0, 1, 0)
             mask = tf.cast(mask, tf.uint8)
-            self.num_classes[mask_type] = 1
+            self.num_classes[cfg_first_key][mask_type] = 1
         
         # category
-        elif self.cfg['MASK_TYPE'][mask_type] == 1:
+        elif cfg_dataset["mask_encoding"] == 1:
             mask = tf.cast(mask, tf.int32)
-            if mask_type == 'VERT':
-                for inst, cat in self.ds_inf[ds_type]["vert2obj"].items():
-                    mask = tf.where(mask == int(inst), cat, mask)
+            
             for inst, cat in self.ds_inf[ds_type]["obj2cat"].items():
                 mask = tf.where(mask == int(inst), cat, mask)
             mask = tf.cast(mask, tf.uint8)
             
-            self.num_classes[mask_type] = len(self.ds_inf[ds_type]["cat2obj"])
+            self.num_classes[cfg_first_key][mask_type] = len(self.ds_inf[ds_type]["cat2obj"])
             
-            mask = reshape_mask(mask, self.num_classes[mask_type])
+            mask = reshape_mask(mask, self.num_classes[cfg_first_key][mask_type])
         
         else:
-            if mask_type == 'VERT':
-                self.num_classes[mask_type] = len(self.ds_inf[ds_type]["vert2obj"])
-                mask = reshape_mask(mask, self.num_classes[mask_type])
-            else:
-                self.num_classes[mask_type] = len(self.ds_inf[ds_type]["obj2cat"])
-                mask = reshape_mask(mask, self.num_classes[mask_type])
+            self.num_classes[cfg_first_key][mask_type] = len(self.ds_inf[ds_type]["obj2cat"])
+            mask = reshape_mask(mask, self.num_classes[cfg_first_key][mask_type])
         
         # reshape:
         shape = tf.shape(mask)
         current_shape = (shape[0], shape[1])
         
-        mask = self.resize_label_map(mask, current_shape, self.num_classes[mask_type], mask_size)
+        mask = self.resize_label_map(mask, current_shape, self.num_classes[cfg_first_key][mask_type],
+                                     cfg_dataset["shape"])
         return tf.cast(mask, tf.uint8)
     
     @staticmethod
@@ -222,34 +222,62 @@ class DataProcessing:
         return label
     
     def combine_ds(self, dataset_dict, flow_field):
-        flow_field = tf.image.resize(flow_field, (20, 12), method='bilinear')
-        dataset_dict['out_flow'] = flow_field
-        if self.cfg['out']['flow_edge']:
-            label_map = self.resize_label_map(dataset_dict['in_edge'], (80, 45), 1, (20, 12))
-            dataset_dict['out_flow'] = dataset_dict['out_flow'] * tf.cast(tf.where(label_map > 0, 1, 0),
-                                                                          tf.float32)
+        flow_field = tf.image.resize(flow_field, self.cfg["out"]["flow"]["shape"], method='bilinear')
+        ds_name = self.cfg["out"]["flow"]["name"]
+        dataset_dict[ds_name] = flow_field
+        if self.cfg["out"]["flow"]["only_edge"]:
+            edge_label = tf.where(tf.reduce_sum(dataset_dict['in_edge'], axis=-1, keepdims=True) > 0, 1, 0)
+            dataset_dict[ds_name] = dataset_dict[ds_name] * tf.cast(edge_label)
         return dataset_dict
     
-    # TODO: adapt dataset to render only scene
     def load_flow_ds(self, ds_type, max_idx):
         edge_stacked = []
         for i in range(max_idx):
             edge = np.load(self.paths[ds_type]['EDGE_FLOW'] + '/{:04}.npy'.format(i))
-            edge = edge[1, :, :, :].astype(np.float32)
-            edge[:, :, 0] = edge[:, :, 0] * self.input_shape_mask[0]
-            edge[:, :, 1] = edge[:, :, 1] * self.input_shape_mask[1]
+            edge = edge.astype(np.float32)
+            edge[:, :, 0] = edge[:, :, 0] * self.cfg["in"]["edge"]["shape"][1]
+            edge[:, :, 1] = edge[:, :, 1] * self.cfg["in"]["edge"]["shape"][0]
             edge_stacked.append(edge)
         edges = np.stack(edge_stacked, axis=0)
         edge_dataset = tf.data.Dataset.from_tensor_slices(edges)
         return edge_dataset
     
     def input_output_keys(self):
-        candidates = ['edge', 'vert', 'cont']
+        candidates = ['edge', 'contour', 'segmentation']
         for c in candidates:
             if self.cfg['in'][c]:
                 self.inputs.append(c)
             if self.cfg['out'][c]:
                 self.outputs_ann.append(c)
+    
+    def set_input_output_data_cfg(self):
+        self.input_data_cfg = {
+            "img": {"input_name": self.cfg["in"]["img"]["name"], "shape": self.cfg["in"]["img"]["shape"]}}
+        if self.cfg["in"]["edge"]:
+            self.input_data_cfg["edge"] = {"name": self.cfg["in"]["edge"]["name"],
+                                           "shape": self.cfg["in"]["edge"]["shape"],
+                                           "num_classes": self.num_classes["in"]["edge"]}
+        if self.cfg["in"]["contour"]:
+            self.input_data_cfg["edge"] = {"name": self.cfg["in"]["contour"]["name"],
+                                           "shape": self.cfg["in"]["contour"]["shape"],
+                                           "num_classes": self.num_classes["in"]["contour"]}
+        
+        self.output_data_cfg = dict()
+        if self.cfg["out"]["edge"]:
+            self.output_data_cfg["edge"] = {"name": self.cfg["out"]["edge"]["name"],
+                                            "shape": self.cfg["out"]["edge"]["shape"],
+                                            "num_classes": self.num_classes["out"]["edge"]}
+        if self.cfg["out"]["contour"]:
+            self.output_data_cfg["edge"] = {"name": self.cfg["out"]["contour"]["name"],
+                                            "shape": self.cfg["out"]["contour"]["shape"],
+                                            "num_classes": self.num_classes["out"]["contour"]}
+        if self.cfg["out"]["segmentation"]:
+            self.output_data_cfg["segmentation"] = {"name": self.cfg["out"]["segmentation"]["name"],
+                                                    "shape": self.cfg["out"]["segmentation"]["shape"],
+                                                    "num_classes": self.num_classes["out"]["segmentation"]}
+        if self.cfg["out"]["flow"]:
+            self.output_data_cfg["flow"] = {"name": self.cfg["out"]["flow"]["name"],
+                                            "shape": self.cfg["out"]["flow"]["shape"]}
 
 
 def split_dataset_dictionary(datapoint):

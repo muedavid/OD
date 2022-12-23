@@ -1,10 +1,8 @@
-TRAIN_MODEL: true
+TRAIN_MODEL: false
 EPOCHS: 180
 
-NAME: edge_detection_without_prior
+NAME: edge_detection_without_prior_fig
 SAVE: true
-INPUT_SHAPE_IMG: [ 320, 180 ]
-OUTPUT_SHAPE: [ 320, 180 ]
 SEED: null
 PARSER: false
 CONVERT_TO_TFLITE: true

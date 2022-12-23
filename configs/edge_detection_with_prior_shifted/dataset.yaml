@@ -3,27 +3,37 @@ NAME: edge_detection
 BASE_PATH_DATA: /home/david/SemesterProject/Datasets
 DATASET_JSON: dataset.json
 
-# 0: INSTANCE, 1: CATEGORY, 2: BINARY
-MASK_TYPE:
-  edge: 2
-  cont: 1
-  vert: 1
-
+# mask encoding types: 0: INSTANCE, 1: CATEGORY, 2: BINARY
 in:
-  edge: true
-  vert: false
-  cont: false
-  prior_img: false
+  img:
+    name: "in_img"
+    shape: [320, 180]
+  edge:
+    name: "in_edge"
+    mask_encoding: 2
+    shape: [ 80, 45 ]
+  contour: null
+#    name: "in_contour"
+#    mask_encoding: 2
+#    shape: [ 80, 45 ]
+    #name: "in_vert"
+  segmentation: null
+    #name: "in_segmentation"
+  prior_img: null
+    #name: "in_prior_img"
 
 out:
-  edge: true
-  vert: false
-  cont: false
-  flow_edge: false
-  flow_scene: false
-
-# As already implemented just as additional information and example on how to load
-VERT_LIST: false
+  edge:
+    name: "out_edge"
+    mask_encoding: 2
+    shape: [ 320, 180 ]
+  contour: null
+  segmentation: null
+    #name: "out_segmentation"
+  flow: null
+    #name: "out_flow"
+    #only_edge: true
+    #shape: [ 80, 45 ]
 
 
 # DATASETS:

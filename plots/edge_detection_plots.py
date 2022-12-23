@@ -6,81 +6,25 @@ from utils import tools
 import cv2
 
 
-def plot_flow_field(images=None, prior=None, flow_ground_truth=None, flow_prediction=None, batch_size=0, num_exp=None, num_classes=1):
-    
-    flow_max = 4.0
-    
-    if num_exp:
-        num_exp = min(num_exp, batch_size)
-    else:
-        num_exp = batch_size
-        
-    # mask = np.zeros(shape=[x_flow.shape[0], x_flow.shape[1], x_flow.shape[2], 3], dtype=np.int32)
-    # already_drawn = np.zeros(shape=x_flow.shape, dtype=np.int32)
-    #
-    # for batch in range(0, x_flow.shape[0]):
-    #     for row in range(0, x_flow.shape[1]):
-    #         for col in range(0, y_flow.shape[2]):
-    #             if x_flow[batch, row, col] != 0 and already_drawn[batch, row, col] == 0:
-    #                 start_point = np.array([col, row])
-    #                 end_point = start_point + np.array([x_flow[batch, row, col], y_flow[batch, row, col]], np.int32)
-    #                 color = (255, 255, 255)
-    #                 thickness = 1
-    #                 mask[batch, :, :, :] = cv2.arrowedLine(mask[batch, :, :, :], start_point, end_point, color=color,
-    #                                                        thickness=thickness)
-    #                 already_drawn[batch, max(row - pad, 0):min(row + pad, x_flow.shape[1] - 1),
-    #                 max(col - pad, 0):min(col + pad, x_flow.shape[2] - 1)] = 1
-    
-    rows = 1 + (prior is not None) + 2*(flow_ground_truth is not None) + 2*(flow_prediction is not None)
-    cols = num_exp
-    plt.figure(figsize=(8 * cols, 8 * rows))
-    for i in range(num_exp):
-        plt.subplot(rows, cols, i + 1)
-        plt.title("Images")
-        plt.imshow(tf.keras.preprocessing.image.array_to_img(images[i, :, :, :]))
-        plt.axis('off')
-        if prior is not None:
-            plt.subplot(rows, num_exp, num_exp + i + 1)
-            plt.title("Prior Edge Maps")
-            plt.imshow(tf.keras.preprocessing.image.array_to_img(prior[i, :, :, :]))
-            plt.axis('off')
-        if flow_ground_truth is not None:
-            x_flow_gt, y_flow_gt = get_flow(flow_ground_truth)
-            
-            plt.subplot(rows, num_exp, (1 + (prior is not None)) * num_exp + i + 1)
-            plt.title("Ground Truth Flow x Direction")
-            plt.imshow(x_flow_gt[i, :, :], cmap='gray', vmin=0, vmax=flow_max)
-            plt.axis('off')
-            plt.subplot(rows, num_exp, (1 + (prior is not None)) * num_exp + num_exp + i + 1)
-            plt.title("Ground Truth Flow y Direction")
-            plt.imshow(y_flow_gt[i, :, :], cmap='gray', vmin=0, vmax=flow_max)
-            plt.axis('off')
-        if flow_prediction is not None:
-            x_flow_pred, y_flow_pred = get_flow(flow_prediction, numpy=True)
-            
-            plt.subplot(rows, num_exp, (1 + (prior is not None) + 2*(flow_ground_truth is not None)) * num_exp + i + 1)
-            plt.title("Flow x Direction")
-            plt.imshow(x_flow_pred[i, :, :], cmap='gray', vmin=0, vmax=flow_max)
-            plt.axis('off')
-            plt.subplot(rows, num_exp, (1 + (prior is not None)+ 2*(flow_ground_truth is not None)) * num_exp + num_exp + i + 1)
-            plt.title("Flow y Direction")
-            plt.imshow(y_flow_pred[i, :, :], cmap='gray', vmin=0, vmax=flow_max)
-            plt.axis('off')
-
-
 def plot_edges(images=None, prior=None, labels=None, predictions=None, save=False, path=None, batch_size=0,
-               num_exp=None, num_classes=0, squeeze_to_single_dimension=False):
-    if labels is not None and squeeze_to_single_dimension is True:
+               num_exp=None):
+    if labels is not None:
+        num_classes_labels = labels.shape[-1]
         labels = tools.squeeze_labels_to_single_dimension(labels)
-    if prior is not None and squeeze_to_single_dimension is True:
+    if prior is not None:
+        num_classes_prior = prior.shape[-1]
         prior = tools.squeeze_labels_to_single_dimension(prior)
+        
+    num_classes_predictions = 0
+    if predictions is not None:
+        num_classes_predictions = predictions.shape[-1]
     
     if num_exp:
         num_exp = min(num_exp, batch_size)
     else:
         num_exp = batch_size
     
-    rows = 1 + (prior is not None) + (labels is not None) + num_classes * (predictions is not None)
+    rows = 1 + (prior is not None) + (labels is not None) + num_classes_predictions * (predictions is not None)
     cols = num_exp
     plt.figure(figsize=(8 * cols, 8 * rows))
     for i in range(num_exp):
@@ -91,15 +35,15 @@ def plot_edges(images=None, prior=None, labels=None, predictions=None, save=Fals
         if prior is not None:
             plt.subplot(rows, num_exp, num_exp + i + 1)
             plt.title("Prior Edge Maps")
-            plt.imshow(prior[i, :, :, 0], cmap='gray', vmin=0, vmax=num_classes)
+            plt.imshow(prior[i, :, :, 0], cmap='gray', vmin=0, vmax=num_classes_prior)
             plt.axis('off')
         if labels is not None:
             plt.subplot(rows, num_exp, (1 + (prior is not None)) * num_exp + i + 1)
             plt.title("Ground Truth")
-            plt.imshow(labels[i, :, :, 0], cmap='gray', vmin=0, vmax=num_classes)
+            plt.imshow(labels[i, :, :, 0], cmap='gray', vmin=0, vmax=num_classes_labels)
             plt.axis('off')
         if predictions is not None:
-            for j in range(num_classes):
+            for j in range(num_classes_predictions):
                 plt.subplot(rows, num_exp, (1 + (prior is not None) + (labels is not None) + j) * num_exp + i + 1)
                 plt.title("Estimation of class: {}".format(j + 1))
                 plt.imshow(predictions[i, :, :, j], cmap='gray', vmin=0, vmax=1)
@@ -216,3 +160,67 @@ def get_flow(flow, numpy=False):
         x_flow = np.abs((flow[:, :, :, 0]).numpy())
         y_flow = np.abs((flow[:, :, :, 1]).numpy())
     return x_flow, y_flow
+
+
+def plot_flow_field(images=None, prior=None, flow_ground_truth=None, flow_prediction=None, batch_size=0, num_exp=None,
+                    num_classes=1):
+    flow_max = 4.0
+    
+    if num_exp:
+        num_exp = min(num_exp, batch_size)
+    else:
+        num_exp = batch_size
+    
+    # mask = np.zeros(shape=[x_flow.shape[0], x_flow.shape[1], x_flow.shape[2], 3], dtype=np.int32)
+    # already_drawn = np.zeros(shape=x_flow.shape, dtype=np.int32)
+    #
+    # for batch in range(0, x_flow.shape[0]):
+    #     for row in range(0, x_flow.shape[1]):
+    #         for col in range(0, y_flow.shape[2]):
+    #             if x_flow[batch, row, col] != 0 and already_drawn[batch, row, col] == 0:
+    #                 start_point = np.array([col, row])
+    #                 end_point = start_point + np.array([x_flow[batch, row, col], y_flow[batch, row, col]], np.int32)
+    #                 color = (255, 255, 255)
+    #                 thickness = 1
+    #                 mask[batch, :, :, :] = cv2.arrowedLine(mask[batch, :, :, :], start_point, end_point, color=color,
+    #                                                        thickness=thickness)
+    #                 already_drawn[batch, max(row - pad, 0):min(row + pad, x_flow.shape[1] - 1),
+    #                 max(col - pad, 0):min(col + pad, x_flow.shape[2] - 1)] = 1
+    
+    rows = 1 + (prior is not None) + 2 * (flow_ground_truth is not None) + 2 * (flow_prediction is not None)
+    cols = num_exp
+    plt.figure(figsize=(8 * cols, 8 * rows))
+    for i in range(num_exp):
+        plt.subplot(rows, cols, i + 1)
+        plt.title("Images")
+        plt.imshow(tf.keras.preprocessing.image.array_to_img(images[i, :, :, :]))
+        plt.axis('off')
+        if prior is not None:
+            plt.subplot(rows, num_exp, num_exp + i + 1)
+            plt.title("Prior Edge Maps")
+            plt.imshow(tf.keras.preprocessing.image.array_to_img(prior[i, :, :, :]))
+            plt.axis('off')
+        if flow_ground_truth is not None:
+            x_flow_gt, y_flow_gt = get_flow(flow_ground_truth)
+            
+            plt.subplot(rows, num_exp, (1 + (prior is not None)) * num_exp + i + 1)
+            plt.title("Ground Truth Flow x Direction")
+            plt.imshow(x_flow_gt[i, :, :], cmap='gray', vmin=0, vmax=flow_max)
+            plt.axis('off')
+            plt.subplot(rows, num_exp, (1 + (prior is not None)) * num_exp + num_exp + i + 1)
+            plt.title("Ground Truth Flow y Direction")
+            plt.imshow(y_flow_gt[i, :, :], cmap='gray', vmin=0, vmax=flow_max)
+            plt.axis('off')
+        if flow_prediction is not None:
+            x_flow_pred, y_flow_pred = get_flow(flow_prediction, numpy=True)
+            
+            plt.subplot(rows, num_exp,
+                        (1 + (prior is not None) + 2 * (flow_ground_truth is not None)) * num_exp + i + 1)
+            plt.title("Flow x Direction")
+            plt.imshow(x_flow_pred[i, :, :], cmap='gray', vmin=0, vmax=flow_max)
+            plt.axis('off')
+            plt.subplot(rows, num_exp,
+                        (1 + (prior is not None) + 2 * (flow_ground_truth is not None)) * num_exp + num_exp + i + 1)
+            plt.title("Flow y Direction")
+            plt.imshow(y_flow_pred[i, :, :], cmap='gray', vmin=0, vmax=flow_max)
+            plt.axis('off')
