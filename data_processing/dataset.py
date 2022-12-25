@@ -117,7 +117,7 @@ class DataProcessing:
         img_path = tf.strings.join([img_base_path, sep_str, img_idx_str, end_str])
         image = tf.io.read_file(img_path)
         image = tf.image.decode_png(image, channels=3)
-        image = tf.image.resize(image, self.cfg["in"]["img"]["shape"], method='bilinear')
+        image = tf.image.resize(image, self.cfg["in"]["img"]["shape"], method="area")
         image = tf.cast(image, tf.uint8)
         dataset_dict[self.cfg["in"]["img"]["name"]] = image
         
@@ -127,7 +127,7 @@ class DataProcessing:
                 img_path = tf.strings.join([img_base_path, sep_str, img_idx_str, end_str])
                 image = tf.io.read_file(img_path)
                 image = tf.image.decode_png(image, channels=3)
-                image = tf.image.resize(image, self.cfg["in"]["prior_img"]["shape"], method='bilinear')
+                image = tf.image.resize(image, self.cfg["in"]["prior_img"]["shape"], method='area')
                 image = tf.cast(image, tf.uint8)
                 dataset_dict[self.cfg["in"]["prior_img"]["name"]] = image
             

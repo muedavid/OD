@@ -5,12 +5,15 @@ from models.network_elements import utils
 def viot_coarse_features_no_prior(input_layer, num_classes, num_filters_per_class, output_shape):
     num_filters = num_classes * num_filters_per_class
     
-    image_1 = utils.convolution_block(input_layer, kernel_size=3, separable=True, num_filters=num_filters)
-    image_1 = utils.mobile_net_v2_inverted_residual(image_1, depth_multiplier=8)
-    image_1 = utils.mobile_net_v2_inverted_residual(image_1, depth_multiplier=8)
-    # TODO: Last layer in side and here has no BN
-    image_1 = utils.convolution_block(image_1, kernel_size=1, num_filters=num_filters)
+    image_1 = utils.convolution_block(input_layer, kernel_size=3, num_filters=16)
+    image_1 = utils.convolution_block(image_1, kernel_size=3, num_filters=16)
+    image_1_1 = tf.keras.layers.AveragePooling2D((5, 5), strides=1, padding="SAME")(image_1)
+    image_1_2 = tf.keras.layers.MaxPool2D((5, 5), strides=1, padding="SAME")(image_1)
+    image_1 = tf.keras.layers.Concatenate()([image_1_1, image_1_2, image_1])
+    image_1 = utils.convolution_block(image_1, kernel_size=1, num_filters=32)
+    image_1 = utils.convolution_block(image_1, kernel_size=3, num_filters=8)
     image_edge = tf.image.resize(image_1, (output_shape[0], output_shape[1]), method="bilinear")
+    # image_edge = tf.keras.layers.AveragePooling2D((2, 2), strides=1, padding="SAME")(image_edge)
     return image_edge
 
 
@@ -29,6 +32,7 @@ def viot_coarse_features_prior(input_layer, input_edge, num_classes, num_filters
     image_1 = utils.convolution_block(image_1, separable=True, kernel_size=3, num_filters=3 * num_filters)
     image_1 = utils.convolution_block(image_1, separable=True, kernel_size=1, num_filters=3 * num_filters)
     image_1 = utils.convolution_block(image_1, separable=True, kernel_size=1, num_filters=num_filters)
+    # image_1 = utils.convolution_block(image_1, separable=True, kernel_size=1, num_filters=num_filters)
     # image_1 = tf.keras.layers.Activation(activation="hard_sigmoid")(image_1)
     image_1 = tf.image.resize(image_1, (output_shape[0], output_shape[1]), method="bilinear")
     return image_1

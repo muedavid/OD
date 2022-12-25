@@ -1,7 +1,7 @@
-TRAIN_MODEL: false
-EPOCHS: 180
+TRAIN_MODEL: true
+EPOCHS: 80
 
-NAME: edge_detection_without_prior_fig
+NAME: edge_detection_without_prior
 SAVE: true
 SEED: null
 PARSER: false
@@ -38,7 +38,7 @@ LOSS:
       edge_loss_weighting: true
       min_edge_loss_weighting: 0.4
       max_edge_loss_weighting: 0.6
-      power: 1.0
+      power: 1.5
   vert: null
   cont: null
   flow_edge: null
@@ -46,7 +46,7 @@ LOSS:
 
 LR:
   START: 0.005
-  END: 0.00005
+  END: 0.0005
   POWER: 0.9
 
 CALLBACKS:

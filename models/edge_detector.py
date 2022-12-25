@@ -56,7 +56,7 @@ class EdgeDetector:
                                             num_filters_per_class=num_filter_per_class,
                                             output_name="out_edge")
         
-        model = keras.Model(inputs=inp, outputs=[output, p1, side_1, side_2])
+        model = keras.Model(inputs=inp, outputs=[output, p1, side_1])
         
         return model
     
@@ -83,17 +83,13 @@ class EdgeDetector:
                                                       output_dims=self.output_data_cfg["edge"]["shape"],
                                                       num_classes=self.output_data_cfg["edge"]["num_classes"],
                                                       num_filters_per_class=num_filter_per_class)
-        side_2 = side_outputs.viot_side_feature_prior(out_2,
-                                                      output_dims=self.output_data_cfg["edge"]["shape"],
-                                                      num_classes=self.output_data_cfg["edge"]["num_classes"],
-                                                      num_filters_per_class=num_filter_per_class)
         
-        output = outputs.viot_fusion_module_prior(x1, side_1, side_2, num_classes=self.output_data_cfg["edge"]["num_classes"],
+        output = outputs.viot_fusion_module_prior(x1, side_1, num_classes=self.output_data_cfg["edge"]["num_classes"],
                                                   num_filters_per_class=num_filter_per_class,
                                                   output_name="out_edge")
         
         model = keras.Model(inputs=[inp, input_edge],
-                            outputs=[output, x1, side_1, side_2])
+                            outputs=[output, x1, side_1])
         
         return model
     
