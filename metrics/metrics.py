@@ -34,7 +34,8 @@ def number_true_false_positive_negative(y_true, y_prediction, threshold_edge_wid
 
 
 class BinaryAccuracyEdges(tf.keras.metrics.Metric):
-    def __init__(self, num_classes, classes_individually=False, name="accuracy_edges", threshold_prediction=0.5, **kwargs):
+    def __init__(self, num_classes, classes_individually=False, name="accuracy_edges",
+                 threshold_prediction=0.5, print_name="edges", **kwargs):
         super(BinaryAccuracyEdges, self).__init__(name=name, **kwargs)
         self.numberTruePredictedPixels = self.add_weight(name="numberTruePredictedPixels", initializer="zeros",
                                                          shape=(num_classes,))
@@ -42,6 +43,7 @@ class BinaryAccuracyEdges(tf.keras.metrics.Metric):
         self.thresholdPrediction = threshold_prediction
         self.num_classes = num_classes
         self.classes_individually = classes_individually
+        self.print_name = print_name
     
     @tf.function
     def update_state(self, y_true, y_pred, sample_weight=None):
@@ -62,7 +64,7 @@ class BinaryAccuracyEdges(tf.keras.metrics.Metric):
         metric_dict = {'accuracy': tf.reduce_mean(accuracy)}
         if self.classes_individually:
             for i in range(1, self.num_classes + 1):
-                metric_dict['accuracy' + "_{}".format(i)] = accuracy[i - 1]
+                metric_dict['accuracy_' + self.print_name + "_{}".format(i)] = accuracy[i - 1]
     
         return metric_dict
     
@@ -75,6 +77,7 @@ class BinaryAccuracyEdges(tf.keras.metrics.Metric):
     
     def get_config(self):
         base_config = super().get_config()
+        base_config['print_name'] = self.print_name
         base_config['threshold_prediction'] = self.thresholdPrediction
         base_config['num_classes'] = self.num_classes
         base_config['classes_individually'] = self.classes_individually
@@ -83,13 +86,14 @@ class BinaryAccuracyEdges(tf.keras.metrics.Metric):
 
 class F1Edges(tf.keras.metrics.Metric):
     def __init__(self, num_classes, classes_individually=False, threshold_prediction=0.5,
-                 threshold_edge_width=0, name="f1_edges", **kwargs):
+                 threshold_edge_width=0, print_name="edges",name="f1_edges", **kwargs):
         super(F1Edges, self).__init__(name=name, **kwargs)
         
         self.thresholdPrediction = threshold_prediction
         self.thresholdEdgeWidth = threshold_edge_width
         self.classes_individually = classes_individually
         self.num_classes = num_classes
+        self.print_name = print_name
         
         self.numberTruePositive = self.add_weight(name="numberTruePositive", initializer="zeros", shape=(num_classes,))
         self.numberTrueNegative = self.add_weight(name="numberTrueNegative", initializer="zeros", shape=(num_classes,))
@@ -118,15 +122,16 @@ class F1Edges(tf.keras.metrics.Metric):
                                                   tf.reduce_sum(self.numberFalsePositive, keepdims=True),
                                                   tf.reduce_sum(self.numberFalseNegative, keepdims=True))
         
-        metric_dict = {"f1": mean_scores[0][0], "precision": mean_scores[1][0], "recall": mean_scores[2][0]}
+        metric_dict = {"f1_"+self.print_name: mean_scores[0][0], "precision_"+self.print_name: mean_scores[1][0],
+                       "recall_"+self.print_name: mean_scores[2][0]}
         
         if self.classes_individually:
             f1, precision, recall = compute_f1_precision_recall(self.numberTruePositive, self.numberFalsePositive,
                                                                 self.numberFalseNegative)
             for i in range(1, self.num_classes + 1):
-                metric_dict["f1" + "_{}".format(i)] = f1[i - 1]
-                metric_dict["precision" + "_{}".format(i)] = precision[i - 1]
-                metric_dict["recall" + "_{}".format(i)] = recall[i - 1]
+                metric_dict["f1_" + self.print_name + "_{}".format(i)] = f1[i - 1]
+                metric_dict["precision_" + self.print_name + "_{}".format(i)] = precision[i - 1]
+                metric_dict["recall_" + self.print_name + "_{}".format(i)] = recall[i - 1]
         
         return metric_dict
     
@@ -140,6 +145,7 @@ class F1Edges(tf.keras.metrics.Metric):
     def get_config(self):
         base_config = super().get_config()
         base_config['num_classes'] = self.num_classes
+        base_config['print_name'] = self.print_name
         base_config['threshold_prediction'] = self.thresholdPrediction
         base_config['threshold_edge_width'] = self.thresholdEdgeWidth
         base_config['classes_individually'] = self.classes_individually

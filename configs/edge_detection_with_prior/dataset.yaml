@@ -11,7 +11,7 @@ in:
   edge:
     name: "in_edge"
     mask_encoding: 2
-    shape: [ 80, 45 ]
+    shape: [ 320, 180 ]
   contour: null
 #    name: "in_contour"
 #    mask_encoding: 2
@@ -73,11 +73,11 @@ TRAIN:
 #    value: 0.3
 
 IMG_ONLY:
-  PATH: 'Real'
+  PATH: 'real'
 
-  MAX_IMG: 20
+  MAX_IMG: 10
 
-  BATCH_SIZE: 6
+  BATCH_SIZE: 5
 
   CACHE: true
   SHUFFLE: false

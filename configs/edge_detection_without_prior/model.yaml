@@ -41,8 +41,7 @@ LOSS:
       power: 1.5
   vert: null
   cont: null
-  flow_edge: null
-  flow_scene: null
+  flow: null
 
 LR:
   START: 0.005

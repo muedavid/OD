@@ -6,15 +6,19 @@ from utils import tools
 import cv2
 
 
-def plot_edges(images=None, prior=None, labels=None, predictions=None, save=False, path=None, batch_size=0,
+def plot_edges(images=None, prior=None, labels_edge=None, labels_segmentation=None, predictions=None, save=False,
+               path=None, batch_size=0,
                num_exp=None):
-    if labels is not None:
-        num_classes_labels = labels.shape[-1]
-        labels = tools.squeeze_labels_to_single_dimension(labels)
+    if labels_edge is not None:
+        num_classes_labels_edge = labels_edge.shape[-1]
+        labels_edge = tools.squeeze_labels_to_single_dimension(labels_edge)
+    if labels_segmentation is not None:
+        num_classes_labels_segmentation = labels_segmentation.shape[-1]
+        labels_segmentation = tools.squeeze_labels_to_single_dimension(labels_segmentation)
     if prior is not None:
         num_classes_prior = prior.shape[-1]
         prior = tools.squeeze_labels_to_single_dimension(prior)
-        
+    
     num_classes_predictions = 0
     if predictions is not None:
         num_classes_predictions = predictions.shape[-1]
@@ -24,7 +28,8 @@ def plot_edges(images=None, prior=None, labels=None, predictions=None, save=Fals
     else:
         num_exp = batch_size
     
-    rows = 1 + (prior is not None) + (labels is not None) + num_classes_predictions * (predictions is not None)
+    rows = 1 + (prior is not None) + (labels_edge is not None) + (
+                labels_segmentation is not None) + num_classes_predictions * (predictions is not None)
     cols = num_exp
     plt.figure(figsize=(8 * cols, 8 * rows))
     for i in range(num_exp):
@@ -37,14 +42,20 @@ def plot_edges(images=None, prior=None, labels=None, predictions=None, save=Fals
             plt.title("Prior Edge Maps")
             plt.imshow(prior[i, :, :, 0], cmap='gray', vmin=0, vmax=num_classes_prior)
             plt.axis('off')
-        if labels is not None:
+        if labels_edge is not None:
             plt.subplot(rows, num_exp, (1 + (prior is not None)) * num_exp + i + 1)
-            plt.title("Ground Truth")
-            plt.imshow(labels[i, :, :, 0], cmap='gray', vmin=0, vmax=num_classes_labels)
+            plt.title("Ground Truth Edge")
+            plt.imshow(labels_edge[i, :, :, 0], cmap='gray', vmin=0, vmax=num_classes_labels_edge)
+            plt.axis('off')
+        if labels_segmentation is not None:
+            plt.subplot(rows, num_exp, (1 + (prior is not None) + (labels_edge is not None)) * num_exp + i + 1)
+            plt.title("Ground Truth Segmentation")
+            plt.imshow(labels_segmentation[i, :, :, 0], cmap='gray', vmin=0, vmax=num_classes_labels_segmentation)
             plt.axis('off')
         if predictions is not None:
             for j in range(num_classes_predictions):
-                plt.subplot(rows, num_exp, (1 + (prior is not None) + (labels is not None) + j) * num_exp + i + 1)
+                plt.subplot(rows, num_exp, (1 + (prior is not None) + (labels_edge is not None) + (
+                            labels_segmentation is not None) + j) * num_exp + i + 1)
                 plt.title("Estimation of class: {}".format(j + 1))
                 plt.imshow(predictions[i, :, :, j], cmap='gray', vmin=0, vmax=1)
                 plt.axis('off')

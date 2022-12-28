@@ -45,7 +45,7 @@ class Model:
         
         return model
     
-    def get_loss_function(self):
+    def get_loss_function(self, output_data_cfg):
         loss_functions = dict()
         
         edge_loss_cfg = self.cfg['LOSS']['edge']
@@ -54,44 +54,85 @@ class Model:
                 raise ValueError("Only and at least one of those edge functions should be applied")
             if edge_loss_cfg['focal']['apply']:
                 focal_cfg = edge_loss_cfg['focal']
-                loss_functions['out_edge'] = edge_losses.FocalLossEdges(focal_cfg['power'],
-                                                                        focal_cfg['edge_loss_weighting'],
-                                                                        focal_cfg['min_edge_loss_weighting'],
-                                                                        focal_cfg['max_edge_loss_weighting'])
+                loss_functions[output_data_cfg["edge"]["name"]] = edge_losses.FocalLossEdges(focal_cfg['power'],
+                                                                                             focal_cfg[
+                                                                                                 'edge_loss_weighting'],
+                                                                                             focal_cfg[
+                                                                                                 'min_edge_loss_weighting'],
+                                                                                             focal_cfg[
+                                                                                                 'max_edge_loss_weighting'])
                 self.custom_objects['FocalLossEdges'] = edge_losses.FocalLossEdges
             
             elif edge_loss_cfg['sigmoid']['apply']:
                 sigmoid_cfg = edge_loss_cfg['sigmoid']
-                loss_functions['out_edge'] = edge_losses.WeightedMultiLabelSigmoidLoss(
+                loss_functions[output_data_cfg["edge"]["name"]] = edge_losses.WeightedMultiLabelSigmoidLoss(
                     sigmoid_cfg['min_edge_loss_weighting'],
                     sigmoid_cfg['max_edge_loss_weighting'],
                     sigmoid_cfg['class_individually_weighted'])
                 
                 self.custom_objects['WeightedMultiLabelSigmoidLoss'] = edge_losses.WeightedMultiLabelSigmoidLoss
-        if self.cfg['LOSS']['flow_edge'] or self.cfg['LOSS']['flow_scene']:
+        if self.cfg['LOSS']['flow']:
             loss_functions['out_flow'] = edge_losses.FlowLoss()
             self.custom_objects['FlowLoss'] = edge_losses.FlowLoss
+        
+        segmentation_loss_cfg = self.cfg['LOSS']['segmentation']
+        if self.cfg['LOSS']['segmentation']:
+            if segmentation_loss_cfg['focal']['apply'] == segmentation_loss_cfg['sigmoid']['apply']:
+                raise ValueError("Only and at least one of those edge functions should be applied")
+            if segmentation_loss_cfg['focal']['apply']:
+                focal_cfg = segmentation_loss_cfg['focal']
+                loss_functions[output_data_cfg["segmentation"]["name"]] = edge_losses.FocalLossEdges(focal_cfg['power'],
+                                                                                                     focal_cfg[
+                                                                                                         'edge_loss_weighting'],
+                                                                                                     focal_cfg[
+                                                                                                         'min_edge_loss_weighting'],
+                                                                                                     focal_cfg[
+                                                                                                         'max_edge_loss_weighting'])
+                self.custom_objects['FocalLossEdges'] = edge_losses.FocalLossEdges
+            
+            elif segmentation_loss_cfg['sigmoid']['apply']:
+                sigmoid_cfg = segmentation_loss_cfg['sigmoid']
+                loss_functions[output_data_cfg["segmentation"]["name"]] = edge_losses.WeightedMultiLabelSigmoidLoss(
+                    sigmoid_cfg['min_edge_loss_weighting'],
+                    sigmoid_cfg['max_edge_loss_weighting'],
+                    sigmoid_cfg['class_individually_weighted'])
+                
+                self.custom_objects['WeightedMultiLabelSigmoidLoss'] = edge_losses.WeightedMultiLabelSigmoidLoss
+        
         return loss_functions
     
-    def get_metrics(self, num_classes):
+    def get_metrics(self, output_data_cfg):
         metric_dic = dict()
         
+        # TODO(Remove edge argument)
+        
         if self.cfg['LOSS']['edge']:
-            metric_dic['out_edge'] = [metrics.BinaryAccuracyEdges(num_classes=num_classes, classes_individually=True,
-                                                                  threshold_prediction=0.5),
-                                      metrics.F1Edges(num_classes=num_classes, classes_individually=True,
-                                                      threshold_prediction=0.5, threshold_edge_width=0)]
+            metric_dic[output_data_cfg["edge"]["name"]] = [
+                metrics.BinaryAccuracyEdges(num_classes=output_data_cfg['edge']['num_classes'],
+                                            classes_individually=True,
+                                            threshold_prediction=0.5),
+                metrics.F1Edges(num_classes=output_data_cfg['edge']['num_classes'], classes_individually=True,
+                                threshold_prediction=0.5, threshold_edge_width=0)]
             
             self.custom_objects['BinaryAccuracyEdges'] = metrics.BinaryAccuracyEdges
             self.custom_objects['F1Edges'] = metrics.F1Edges
-        
+        if self.cfg['LOSS']['segmentation']:
+            metric_dic[output_data_cfg["segmentation"]["name"]] = [
+                metrics.BinaryAccuracyEdges(num_classes=output_data_cfg['segmentation']['num_classes'],
+                                            classes_individually=True,
+                                            threshold_prediction=0.5, print_name="segmentation"),
+                metrics.F1Edges(num_classes=output_data_cfg['segmentation']['num_classes'], classes_individually=True,
+                                threshold_prediction=0.5, threshold_edge_width=0, print_name="segmentation")]
+            
+            self.custom_objects['BinaryAccuracyEdges'] = metrics.BinaryAccuracyEdges
+            self.custom_objects['F1Edges'] = metrics.F1Edges
         return metric_dic
     
     def get_callbacks(self):
         # freq = int(np.ceil(img_count / self.bs) * self.cfg["CALLBACKS"]["CKPT_FREQ"]) + 1
         
         callbacks = [tf.keras.callbacks.ModelCheckpoint(
-            filepath=self.Data.paths["CKPT"] + "/ckpt-loss={val_loss:.2f}-epoch={epoch:.2f}-f1={val_f1:.4f}",
+            filepath=self.Data.paths["CKPT"] + "/ckpt-loss={val_loss:.2f}-epoch={epoch:.2f}-f1={val_f1_edges:.4f}",
             save_weights_only=False, save_best_only=False, monitor="val_f1", verbose=1, save_freq='epoch',
             period=self.cfg["CALLBACKS"]["CKPT_FREQ"])]
         

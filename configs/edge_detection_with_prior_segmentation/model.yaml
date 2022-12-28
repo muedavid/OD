@@ -1,0 +1,75 @@
+TRAIN_MODEL: true
+EPOCHS: 50
+
+NAME: edge_detection_with_prior_segmentation
+SAVE: true
+SEED: null
+PARSER: false
+CONVERT_TO_TFLITE: true
+
+# Model type: defines the task which is solved by the model ['edge detector']
+MODEL:
+  TYPE: 'edge detector'
+
+BACKBONE:
+  NAME: MobileNetV2
+  ALPHA: 0.35
+  WEIGHTS: imagenet
+  # OUTPUT_IDX: &idx 3
+  # OUTPUT_IDS: [1, 2, *idx]
+  OUTPUT_IDX: &idx 2
+  OUTPUT_IDS: [1, *idx]
+  TRAIN_IDX: null
+
+  FINE_TUNING:
+    EPOCHS: 5
+    FINE_TUNING: false
+
+LOSS:
+  edge:
+    sigmoid:
+      apply: false
+      class_individually_weighted: false
+      min_edge_loss_weighting: 0.4
+      max_edge_loss_weighting: 0.6
+    focal:
+      apply: true
+      edge_loss_weighting: true
+      min_edge_loss_weighting: 0.4
+      max_edge_loss_weighting: 0.6
+      power: 1.0
+  segmentation:
+    sigmoid:
+      apply: true
+      class_individually_weighted: false
+      min_edge_loss_weighting: 0.4
+      max_edge_loss_weighting: 0.6
+    focal:
+      apply: false
+      edge_loss_weighting: true
+      min_edge_loss_weighting: 0.5
+      max_edge_loss_weighting: 0.5
+      power: 1.0
+  vert: null
+  cont: null
+  flow: null
+
+LR:
+  START:  0.005
+  END:    0.0005
+  POWER: 0.9
+
+CALLBACKS:
+  DEL_OLD_CKPT: true
+  CKPT_FREQ: 10
+  DEL_OLD_TB: true
+  LOG_TB: false
+  TENSORBOARD: false
+
+CATEGORIES:
+#  edge: 1
+  base: 1
+  bar: 2
+  cover: 3
+  elektro: 4
+  tube: 5

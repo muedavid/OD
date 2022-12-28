@@ -153,7 +153,17 @@ class DataProcessing:
                 mask = mask_output[:, :, idx:idx + 1]
                 dataset_dict[self.cfg["out"][mask_type]["name"]] = \
                     self.preprocess_mask(mask, ds_type, mask_type, False)
-        
+        else:
+            if self.paths[ds_type]["PRIOR_ANN"]:
+                mask_base_path = tf.constant(self.paths[ds_type]['PRIOR_ANN'], dtype=tf.string)
+                mask_path = tf.strings.join([mask_base_path, sep_str, img_idx_str, end_str])
+                mask_input = tf.io.read_file(mask_path)
+                mask_input = tf.image.decode_png(mask_input, channels=3)
+                idx = self.ds_inf[ds_type]['info']['mask']['edge']
+                mask = mask_input[:, :, idx:idx + 1]
+                dataset_dict[self.cfg["in"]['edge']["name"]] = \
+                    self.preprocess_mask(mask, ds_type, "edge", True)
+                
         return dataset_dict
     
     def preprocess_mask(self, mask, ds_type, mask_type, cfg_input_key):
@@ -188,8 +198,11 @@ class DataProcessing:
         shape = tf.shape(mask)
         current_shape = (shape[0], shape[1])
         
-        mask = self.resize_label_map(mask, current_shape, self.num_classes[cfg_first_key][mask_type],
-                                     cfg_dataset["shape"])
+        if mask_type == "segmentation":
+            mask = tf.image.resize(mask,cfg_dataset["shape"], method="nearest")
+        else:
+            mask = self.resize_label_map(mask, current_shape, self.num_classes[cfg_first_key][mask_type],
+                                         cfg_dataset["shape"])
         return tf.cast(mask, tf.uint8)
     
     @staticmethod
