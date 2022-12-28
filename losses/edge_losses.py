@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 
 
 class WeightedMultiLabelSigmoidLoss(tf.keras.losses.Loss):
@@ -8,6 +9,13 @@ class WeightedMultiLabelSigmoidLoss(tf.keras.losses.Loss):
         self.min_edge_loss_weighting = min_edge_loss_weighting
         self.max_edge_loss_weighting = max_edge_loss_weighting
         self.class_individually_weighted = class_individually_weighted
+        size = 17
+        sig = 6
+        ax = np.linspace(-(size - 1) / 2., (size - 1) / 2., size)
+        gauss = np.exp(-0.5 * np.square(ax) / np.square(sig))
+        kernel = np.outer(gauss, gauss)
+        kernel = np.expand_dims(kernel, axis=[2, 3])
+        self.kernel = tf.constant(kernel, tf.float32)
     
     @tf.function
     def call(self, y_true, y_pred):
@@ -17,6 +25,10 @@ class WeightedMultiLabelSigmoidLoss(tf.keras.losses.Loss):
         max_edge_loss_weighting = tf.cast(self.max_edge_loss_weighting, dtype=dtype)
         
         y_true = tf.cast(y_true, dtype=dtype)
+        
+        # reduce y_true
+        weight = tf.cast(tf.where(tf.reduce_sum(y_true, keepdims=True) > 0, 1.0, 0.0), tf.float32)
+        weight = tf.nn.conv2d(weight, self.kernel, strides=[1, 1, 1, 1], padding="SAME") + 0.3
         
         # Compute Beta
         if self.class_individually_weighted:
@@ -42,6 +54,7 @@ class WeightedMultiLabelSigmoidLoss(tf.keras.losses.Loss):
         loss = -edge_loss_weighting * y_true * tf.math.log(tf.clip_by_value(one_sig_out, 1e-10, 1000)) - (
                 1 - edge_loss_weighting) * (
                        1 - y_true) * tf.math.log(tf.clip_by_value(zero_sig_out, 1e-10, 1000))
+        loss = loss*weight
         loss = tf.reduce_mean(tf.reduce_sum(loss, axis=[1, 2, 3]))
         return loss
     
@@ -51,7 +64,6 @@ class WeightedMultiLabelSigmoidLoss(tf.keras.losses.Loss):
         base_config['max_edge_loss_weighting'] = self.max_edge_loss_weighting
         base_config['class_individually_weighted'] = self.class_individually_weighted
         return base_config
-
 
 
 class FocalLossEdges(tf.keras.losses.Loss):
@@ -85,7 +97,8 @@ class FocalLossEdges(tf.keras.losses.Loss):
             edge_loss_weighting = tf.cast(edge_loss_weighting, dtype)
             
             loss = - edge_loss_weighting * y_true * tf.math.pow(zero_sig_out, power) * tf.math.log(
-                tf.clip_by_value(one_sig_out, 1e-10, 1000)) - (1.0 - edge_loss_weighting) * (1.0 - y_true) * tf.math.pow(
+                tf.clip_by_value(one_sig_out, 1e-10, 1000)) - (1.0 - edge_loss_weighting) * (
+                               1.0 - y_true) * tf.math.pow(
                 one_sig_out, power) * tf.math.log(tf.clip_by_value(zero_sig_out, 1e-10, 1000))
         else:
             loss = - y_true * tf.math.pow(1 - one_sig_out, power) * \
@@ -113,7 +126,6 @@ class FlowLoss(tf.keras.losses.Loss):
     
     @tf.function
     def call(self, y_true, y_pred):
-        
         mult = 2.0
         
         large_loss = tf.where(tf.abs(y_true - y_pred) >= self.large_loss_threshold, 1.0, 0.0)
@@ -125,7 +137,7 @@ class FlowLoss(tf.keras.losses.Loss):
         loss = mult * large_loss * tf.abs(y_true - y_pred) + \
                mult / self.large_loss_threshold * (1 - large_loss) * tf.math.square(y_true - y_pred)
         loss = loss * y_true_mask
-        return 10*tf.reduce_sum(loss)/(tf.reduce_sum(y_true_mask)+1) # + tf.reduce_mean(smoothing_loss)
+        return 10 * tf.reduce_sum(loss) / (tf.reduce_sum(y_true_mask) + 1)  # + tf.reduce_mean(smoothing_loss)
     
     def get_config(self):
         base_config = super().get_config()

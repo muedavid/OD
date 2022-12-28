@@ -28,20 +28,20 @@ BACKBONE:
 LOSS:
   edge:
     sigmoid:
-      apply: false
-      class_individually_weighted: false
-      min_edge_loss_weighting: 0.4
-      max_edge_loss_weighting: 0.6
-    focal:
       apply: true
+      class_individually_weighted: false
+      min_edge_loss_weighting: 0.3
+      max_edge_loss_weighting: 0.7
+    focal:
+      apply: false
       edge_loss_weighting: true
       min_edge_loss_weighting: 0.4
       max_edge_loss_weighting: 0.6
       power: 1.0
   vert: null
+  segmentation: null
   cont: null
-  flow_edge: null
-  flow_scene: null
+  flow: null
 
 LR:
   START:  0.005

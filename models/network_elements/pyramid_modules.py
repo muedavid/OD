@@ -22,16 +22,25 @@ def viot_coarse_features_prior(input_layer, input_edge, num_classes, num_filters
     
     edge_1 = utils.convolution_block(input_edge, kernel_size=1, num_filters=6)
     edge_1 = utils.convolution_block(edge_1, kernel_size=3, num_filters=6, separable=True)
-    edge_1 = utils.convolution_block(edge_1, kernel_size=3, num_filters=6, separable=True)
     
-    image_1 = utils.convolution_block(input_layer, kernel_size=3, num_filters=num_filters, separable=True)
-    image_1 = utils.mobile_net_v2_inverted_residual(image_1, depth_multiplier=6)
-    image_1 = tf.keras.layers.Concatenate()([image_1, edge_1])
-    image_1 = utils.convolution_block(image_1, kernel_size=1, num_filters=2 * num_filters)
-    image_1 = utils.convolution_block(image_1, separable=True, kernel_size=3, num_filters=3 * num_filters)
-    image_1 = utils.convolution_block(image_1, separable=True, kernel_size=3, num_filters=3 * num_filters)
-    image_1 = utils.convolution_block(image_1, separable=True, kernel_size=1, num_filters=3 * num_filters)
-    image_1 = utils.convolution_block(image_1, separable=True, kernel_size=1, num_filters=num_filters)
+    image_1 = utils.convolution_block(input_layer, kernel_size=3, num_filters=16, separable=True)
+    
+    image_1_small = utils.convolution_block(image_1, kernel_size=1, num_filters=4)
+    
+    image_2 = utils.convolution_block(image_1, kernel_size=3, num_filters=16, separable=True)
+    aw = utils.convolution_block(image_2, kernel_size=3, strides=3, separable=True, RELU=False, BN=False)
+    aw = tf.keras.layers.Activation(activation="hard_sigmoid")(aw)
+    aw = tf.image.resize(aw, (image_2.shape[1], image_2.shape[2]))
+    image_2 = image_2 * aw
+
+    image_2 = tf.keras.layers.Concatenate()([edge_1, image_2])
+    image_2 = utils.convolution_block(image_2, kernel_size=3, num_filters=12)
+    image_2 = utils.convolution_block(image_2, kernel_size=3, separable=True, num_filters=12)
+    image_2 = utils.convolution_block(image_2, kernel_size=1, num_filters=6)
+    
+    image_2 = tf.image.resize(image_2, (image_1.shape[1], image_1.shape[2]))
+    image_1 = tf.keras.layers.Concatenate()([image_1_small, image_2])
+    image_1 = utils.convolution_block(image_1, kernel_size=3, num_filters=num_filters)
     # image_1 = utils.convolution_block(image_1, separable=True, kernel_size=1, num_filters=num_filters)
     # image_1 = tf.keras.layers.Activation(activation="hard_sigmoid")(image_1)
     image_1 = tf.image.resize(image_1, (output_shape[0], output_shape[1]), method="bilinear")

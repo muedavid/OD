@@ -84,7 +84,7 @@ class EdgeDetector:
                                                         num_filters_per_class=num_filter_per_class,
                                                         output_shape=self.output_data_cfg["edge"]["shape"])
         
-        side_1 = side_outputs.viot_side_feature_prior(out_1,
+        side_1 = side_outputs.viot_side_feature_prior(out_2,
                                                       output_dims=self.output_data_cfg["edge"]["shape"],
                                                       num_classes=self.output_data_cfg["edge"]["num_classes"],
                                                       num_filters_per_class=num_filter_per_class)

@@ -15,11 +15,12 @@ def viot_side_feature(x1, output_dims, num_classes, num_filters_per_class, metho
 
 def viot_side_feature_prior(x1, output_dims, num_classes, num_filters_per_class, method="bilinear"):
     num_filters = num_filters_per_class * num_classes
-    x1 = utils.convolution_block(x1, kernel_size=3, separable=True, num_filters=2 * num_filters)
+    x1 = utils.convolution_block(x1, kernel_size=3, separable=True, num_filters=2*num_filters)
     x1 = utils.convolution_block(x1, kernel_size=1, separable=True, num_filters=num_filters)
 
     if x1.shape[1] != output_dims[0]:
         x1 = tf.image.resize(x1, output_dims)
+        x1 = utils.convolution_block(x1, kernel_size=3, depthwise=True, BN=False, RELU=False)
     return x1
 
 def side_feature(x, output_dims, num_classes, num_filters_per_class, method="bilinear", name=None):

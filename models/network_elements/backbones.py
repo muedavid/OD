@@ -105,11 +105,10 @@ def get_mobile_net(input_shape=(640, 360, 3), num_filters=8):
 def get_mobile_net_prior(input_shape=(640, 360, 3), num_filters=8):
     input_model = keras.Input(shape=input_shape, name="in_img")
     
-    conv_1 = utils.convolution_block(input_model, num_filters=8, kernel_size=3)
-    conv_1 = utils.convolution_block(conv_1, depthwise=True)
-    conv_1 = utils.convolution_block(conv_1, num_filters=8, kernel_size=1)
-    conv_2 = utils.mobile_net_v2_inverted_residual(conv_1, strides=2, depth_multiplier=2)
-    conv_2 = utils.mobile_net_v2_inverted_residual(conv_2, depth_multiplier=8)
+    conv_1 = utils.convolution_block(input_model, num_filters=16, kernel_size=3, RELU=False)
+    conv_1 = utils.convolution_block(conv_1, num_filters=16, separable=True)
+    conv_2 = utils.convolution_block(conv_1, depthwise=True, kernel_size=3, strides=2, BN=False, RELU=False)
+    conv_2 = utils.mobile_net_v2_inverted_residual(conv_2, depth_multiplier=3)
     conv_3 = utils.convolution_block(conv_2, RELU=False, BN=False, kernel_size=3, strides=2)
     
     return input_model, conv_1, conv_2, conv_3

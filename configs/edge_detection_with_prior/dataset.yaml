@@ -11,7 +11,7 @@ in:
   edge:
     name: "in_edge"
     mask_encoding: 2
-    shape: [ 320, 180 ]
+    shape: [ 80, 45 ]
   contour: null
 #    name: "in_contour"
 #    mask_encoding: 2

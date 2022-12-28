@@ -19,7 +19,7 @@ def viot_fusion_module(dec_edge, side_1, side_2, num_classes, num_filters_per_cl
     return tf.keras.layers.Activation(activation='sigmoid', name=output_name)(output)
 
 
-def viot_fusion_module_prior (dec_1, side_1, num_classes, num_filters_per_class, output_name="out_edge"):
+def viot_fusion_module_prior(dec_1, side_1, num_classes, num_filters_per_class, output_name="out_edge"):
     # Note: Avoided indexing (memory consumption, avoided BN as values should start being meaningful as what they really are)
     num_filters = num_filters_per_class * num_classes
     side = tf.keras.layers.Concatenate()([side_1, dec_1])

@@ -7,8 +7,7 @@ import cv2
 
 
 def plot_edges(images=None, prior=None, labels_edge=None, labels_segmentation=None, predictions=None, save=False,
-               path=None, batch_size=0,
-               num_exp=None):
+               path=None, batch_size=0, num_exp=None):
     if labels_edge is not None:
         num_classes_labels_edge = labels_edge.shape[-1]
         labels_edge = tools.squeeze_labels_to_single_dimension(labels_edge)
@@ -17,7 +16,7 @@ def plot_edges(images=None, prior=None, labels_edge=None, labels_segmentation=No
         labels_segmentation = tools.squeeze_labels_to_single_dimension(labels_segmentation)
     if prior is not None:
         num_classes_prior = prior.shape[-1]
-        prior = tools.squeeze_labels_to_single_dimension(prior)
+        # prior = tools.squeeze_labels_to_single_dimension(prior)
     
     num_classes_predictions = 0
     if predictions is not None:
