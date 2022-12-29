@@ -23,6 +23,22 @@ def viot_side_feature_prior(x1, output_dims, num_classes, num_filters_per_class,
         x1 = utils.convolution_block(x1, kernel_size=3, depthwise=True, BN=False, RELU=False)
     return x1
 
+
+def viot_side_feature_prior_segmentation(x1, x2, output_dims_edge, output_dims_segmentation, num_classes, num_filters_per_class, method="bilinear"):
+    num_filters = num_filters_per_class * num_classes
+    segmentation = utils.convolution_block(x1, kernel_size=3, num_filters=16, separable=True)
+    edge = utils.convolution_block(x2, kernel_size=3, num_filters=6, separable=True)
+    edge = utils.convolution_block(edge, kernel_size=3, num_filters=6)
+    
+    if edge.shape[1] != output_dims_edge[0]:
+        edge = tf.image.resize(edge, output_dims_edge)
+        edge = utils.convolution_block(edge, kernel_size=3, separable=True, num_filters=6, BN=False)
+    if segmentation.shape[1] != output_dims_segmentation[0]:
+        segmentation = tf.image.resize(segmentation, output_dims_segmentation)
+        segmentation = utils.convolution_block(segmentation, kernel_size=3, separable=True, num_filters=6)
+    return segmentation, edge
+
+
 def side_feature(x, output_dims, num_classes, num_filters_per_class, method="bilinear", name=None):
     num_filters = num_filters_per_class*num_classes
     sides = []

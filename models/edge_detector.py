@@ -77,9 +77,10 @@ class EdgeDetector:
         
         inp, out_1, out_2, out_3 = backbones.get_mobile_net_prior(self.input_shape_img,
                                                                   num_filters=num_filter_per_class *
-                                                                              self.output_data_cfg["edge"]["num_classes"])
+                                                                              self.output_data_cfg["edge"][
+                                                                                  "num_classes"])
         
-        x1 = pyramid_modules.viot_coarse_features_prior(out_3, input_edge,
+        x1, x2 = pyramid_modules.viot_coarse_features_prior(out_3, input_edge,
                                                         num_classes=self.output_data_cfg["edge"]["num_classes"],
                                                         num_filters_per_class=num_filter_per_class,
                                                         output_shape=self.output_data_cfg["edge"]["shape"])
@@ -94,7 +95,7 @@ class EdgeDetector:
                                                   output_name="out_edge")
         
         model = keras.Model(inputs=[inp, input_edge],
-                            outputs=[output, x1, side_1])
+                            outputs=[output, out_1, out_2, x1, x2, side_1])
         
         return model
     
@@ -112,25 +113,27 @@ class EdgeDetector:
                                                                               self.output_data_cfg["segmentation"][
                                                                                   "num_classes"])
         
-        x1, x2 = pyramid_modules.viot_coarse_features_prior_segmentation(out_3, input_edge,
-                                                                         num_classes=self.output_data_cfg["segmentation"][
-                                                                             "num_classes"],
-                                                                         num_filters_per_class=num_filter_per_class,
-                                                                         output_shape_segmentation=self.output_data_cfg["segmentation"][
-                                                                             "shape"],
-                                                                         output_shape_edge=self.output_data_cfg["edge"]["shape"])
+        edge, segmentation = pyramid_modules. \
+            viot_coarse_features_prior_segmentation(out_3, input_edge,
+                                                    num_classes=self.output_data_cfg["segmentation"]["num_classes"],
+                                                    num_filters_per_class=num_filter_per_class,
+                                                    output_shape_segmentation=self.output_data_cfg["segmentation"]["shape"],
+                                                    output_shape_edge=self.output_data_cfg["edge"]["shape"])
         
-        side_1 = side_outputs.viot_side_feature_prior(out_1,
-                                                      output_dims=self.output_data_cfg["edge"]["shape"],
-                                                      num_classes=self.output_data_cfg["edge"]["num_classes"],
-                                                      num_filters_per_class=num_filter_per_class)
-
-        output = outputs.viot_fusion_module_prior(x1, side_1, num_classes=self.output_data_cfg["edge"]["num_classes"],
-                                                  num_filters_per_class=num_filter_per_class,
-                                                  output_name=self.output_data_cfg["edge"]["name"])
+        side_segmentation, side_edge = \
+            side_outputs.viot_side_feature_prior_segmentation(out_1, out_2,
+                                                              output_dims_edge=self.output_data_cfg["edge"]["shape"],
+                                                              output_dims_segmentation=
+                                                              self.output_data_cfg["segmentation"]["shape"],
+                                                              num_classes=self.output_data_cfg["edge"]["num_classes"],
+                                                              num_filters_per_class=num_filter_per_class)
+        
+        out_edge, out_seg = outputs.viot_fusion_module_prior_segmentation(
+            dec_seg=segmentation, dec_edge=edge, side_seg=side_segmentation, side_edge=side_edge,
+            num_classes=self.output_data_cfg["edge"]["num_classes"], num_filters_per_class=num_filter_per_class)
         
         model = keras.Model(inputs=[inp, input_edge],
-                            outputs=[output, x2])
+                            outputs=[out_edge, out_seg, side_segmentation, side_edge, segmentation, edge, out_1, out_2])
         
         return model
     

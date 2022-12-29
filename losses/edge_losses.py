@@ -9,8 +9,8 @@ class WeightedMultiLabelSigmoidLoss(tf.keras.losses.Loss):
         self.min_edge_loss_weighting = min_edge_loss_weighting
         self.max_edge_loss_weighting = max_edge_loss_weighting
         self.class_individually_weighted = class_individually_weighted
-        size = 17
-        sig = 6
+        size = 13
+        sig = 4
         ax = np.linspace(-(size - 1) / 2., (size - 1) / 2., size)
         gauss = np.exp(-0.5 * np.square(ax) / np.square(sig))
         kernel = np.outer(gauss, gauss)
@@ -28,7 +28,10 @@ class WeightedMultiLabelSigmoidLoss(tf.keras.losses.Loss):
         
         # reduce y_true
         weight = tf.cast(tf.where(tf.reduce_sum(y_true, keepdims=True) > 0, 1.0, 0.0), tf.float32)
-        weight = tf.nn.conv2d(weight, self.kernel, strides=[1, 1, 1, 1], padding="SAME") + 0.3
+        filter_dilation = tf.zeros(shape=(3, 3, 1))
+        weight = tf.nn.dilation2d(weight, filter_dilation, strides=[1, 1, 1, 1], padding="SAME",
+                                  dilations=[1, 1, 1, 1], data_format="NHWC")
+        weight = tf.nn.conv2d(weight, self.kernel, strides=[1, 1, 1, 1], padding="SAME") + 0.1
         
         # Compute Beta
         if self.class_individually_weighted:
@@ -54,7 +57,7 @@ class WeightedMultiLabelSigmoidLoss(tf.keras.losses.Loss):
         loss = -edge_loss_weighting * y_true * tf.math.log(tf.clip_by_value(one_sig_out, 1e-10, 1000)) - (
                 1 - edge_loss_weighting) * (
                        1 - y_true) * tf.math.log(tf.clip_by_value(zero_sig_out, 1e-10, 1000))
-        loss = loss*weight
+        loss = loss * weight
         loss = tf.reduce_mean(tf.reduce_sum(loss, axis=[1, 2, 3]))
         return loss
     
@@ -107,17 +110,22 @@ class FocalLossEdges(tf.keras.losses.Loss):
                                                    self.max_edge_loss_weighting)
             edge_loss_weighting = tf.cast(edge_loss_weighting, dtype)
             
-            loss = - edge_loss_weighting * y_true * tf.math.pow(zero_sig_out, power) * tf.math.log(
-                tf.clip_by_value(one_sig_out, 1e-10, 1000)) - (1.0 - edge_loss_weighting) * (
-                               1.0 - y_true) * tf.math.pow(
+            background_loss = - (1.0 - edge_loss_weighting) * (
+                    1.0 - y_true) * tf.math.pow(
                 one_sig_out, power) * tf.math.log(tf.clip_by_value(zero_sig_out, 1e-10, 1000))
+            # asymetric: removed * tf.math.pow(zero_sig_out, power)
+            edge_loss = - edge_loss_weighting * y_true * tf.math.log(
+                tf.clip_by_value(one_sig_out, 1e-10, 1000))
+            loss = background_loss + edge_loss
         else:
-            loss = - y_true * tf.math.pow(1 - one_sig_out, power) * \
-                   tf.math.log(tf.clip_by_value(one_sig_out, 1e-10, 1000)) - \
-                   (1 - y_true) * tf.math.pow(1 - zero_sig_out, power) * \
-                   tf.math.log(tf.clip_by_value(zero_sig_out, 1e-10, 1000))
+            background_loss = - (1 - y_true) * tf.math.pow(1 - zero_sig_out, power) * \
+                              tf.math.log(tf.clip_by_value(zero_sig_out, 1e-10, 1000))
+            # asymetric: removed * tf.math.pow(zero_sig_out, power)
+            edge_loss = - y_true * \
+                        tf.math.log(tf.clip_by_value(one_sig_out, 1e-10, 1000))
+            loss = background_loss + edge_loss
         
-        loss = tf.reduce_mean(tf.reduce_sum(tf.reduce_mean(loss*weight, axis=-1), axis=[1, 2]))
+        loss = tf.reduce_mean(tf.reduce_sum(tf.reduce_mean(loss * weight, axis=-1), axis=[1, 2]))
         
         return loss
     
@@ -153,6 +161,66 @@ class FlowLoss(tf.keras.losses.Loss):
     def get_config(self):
         base_config = super().get_config()
         base_config['large_loss_threshold'] = self.large_loss_threshold
+        return base_config
+
+
+class SegmentationLoss(tf.keras.losses.Loss):
+    def __init__(self, min_edge_loss_weighting=0.005, max_edge_loss_weighting=0.995, class_individually_weighted=False,
+                 name='segmentation_loss'):
+        super().__init__(name=name)
+        self.min_edge_loss_weighting = min_edge_loss_weighting
+        self.max_edge_loss_weighting = max_edge_loss_weighting
+        self.class_individually_weighted = class_individually_weighted
+    
+    @tf.function
+    def call(self, y_true, y_pred):
+        dtype = tf.float32
+        
+        min_edge_loss_weighting = tf.cast(self.min_edge_loss_weighting, dtype=dtype)
+        max_edge_loss_weighting = tf.cast(self.max_edge_loss_weighting, dtype=dtype)
+        
+        y_true = tf.cast(y_true, dtype=dtype)
+        
+        filter_dilation = tf.zeros(shape=(7, 7, 5))
+        weight_large = tf.nn.dilation2d(y_true, filter_dilation, strides=[1, 1, 1, 1], padding="SAME",
+                                        dilations=[1, 1, 1, 1], data_format="NHWC")
+        weight_small = tf.nn.erosion2d(y_true, filter_dilation, strides=[1, 1, 1, 1], padding="SAME",
+                                       dilations=[1, 1, 1, 1], data_format="NHWC")
+        weight = (weight_large - weight_small)*0.5 + 0.5
+        
+        # Compute Beta
+        if self.class_individually_weighted:
+            num_edge_pixel = tf.reduce_sum(y_true, axis=[1, 2], keepdims=True)
+        else:
+            num_edge_pixel = tf.reduce_sum(y_true, axis=[1, 2, 3], keepdims=True)
+        num_edge_pixel = tf.cast(num_edge_pixel, dtype=dtype)
+        num_pixel = y_true.shape[1] * y_true.shape[2]
+        num_pixel = tf.cast(num_pixel, dtype=dtype)
+        num_non_edge_pixel = num_pixel - num_edge_pixel
+        num_non_edge_pixel = tf.cast(num_non_edge_pixel, dtype=dtype)
+        edge_loss_weighting = num_non_edge_pixel / num_pixel
+        edge_loss_weighting = tf.clip_by_value(edge_loss_weighting, min_edge_loss_weighting, max_edge_loss_weighting)
+        
+        # Loss
+        edge_loss_weighting = tf.cast(edge_loss_weighting, dtype)
+        y_true = tf.cast(y_true, dtype)
+        y_prediction = tf.cast(y_pred, dtype)
+        one = tf.constant(1.0, dtype=dtype)
+        one_sig_out = y_prediction
+        zero_sig_out = one - one_sig_out
+        
+        loss = -edge_loss_weighting * y_true * tf.math.log(tf.clip_by_value(one_sig_out, 1e-10, 1000)) - (
+                1 - edge_loss_weighting) * (
+                       1 - y_true) * tf.math.log(tf.clip_by_value(zero_sig_out, 1e-10, 1000))
+        loss = loss * weight
+        loss = tf.reduce_mean(tf.reduce_sum(loss, axis=[1, 2, 3])) / 5
+        return loss
+    
+    def get_config(self):
+        base_config = super().get_config()
+        base_config['min_edge_loss_weighting'] = self.min_edge_loss_weighting
+        base_config['max_edge_loss_weighting'] = self.max_edge_loss_weighting
+        base_config['class_individually_weighted'] = self.class_individually_weighted
         return base_config
 
 

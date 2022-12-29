@@ -16,7 +16,7 @@ def plot_edges(images=None, prior=None, labels_edge=None, labels_segmentation=No
         labels_segmentation = tools.squeeze_labels_to_single_dimension(labels_segmentation)
     if prior is not None:
         num_classes_prior = prior.shape[-1]
-        # prior = tools.squeeze_labels_to_single_dimension(prior)
+        prior = tools.squeeze_labels_to_single_dimension(prior)
     
     num_classes_predictions_edge = 0
     if predictions_edge is not None:
@@ -32,50 +32,78 @@ def plot_edges(images=None, prior=None, labels_edge=None, labels_segmentation=No
     
     rows = 1 + (prior is not None) + (labels_edge is not None) + (
             labels_segmentation is not None) + num_classes_predictions_edge * (
-                       predictions_edge is not None) + num_classes_predictions_segmentation * (
-                       predictions_segmentation is not None)
+                   predictions_edge is not None) + (num_classes_predictions_segmentation + 2) * (
+                   predictions_segmentation is not None)
     cols = num_exp
     plt.figure(figsize=(8 * cols, 8 * rows))
     
     subplot_idx = 1
     for i in range(num_exp):
-        plt.subplot(rows, cols, subplot_idx + i)
+        plt.subplot(rows, cols, subplot_idx)
         plt.title("Images")
         plt.imshow(tf.keras.preprocessing.image.array_to_img(images[i, :, :, :]))
         plt.axis('off')
-        subplot_idx = num_exp
-        if prior is not None:
-            plt.subplot(rows, num_exp, subplot_idx + i)
+        subplot_idx += 1
+    if prior is not None:
+        for i in range(num_exp):
+            plt.subplot(rows, num_exp, subplot_idx)
             plt.title("Prior Edge Maps")
             plt.imshow(prior[i, :, :, 0], cmap='gray', vmin=0, vmax=num_classes_prior)
             plt.axis('off')
-            subplot_idx += num_exp
-        if labels_edge is not None:
-            plt.subplot(rows, num_exp, subplot_idx + i)
+            subplot_idx += 1
+    if labels_edge is not None:
+        for i in range(num_exp):
+            plt.subplot(rows, num_exp, subplot_idx)
             plt.title("Ground Truth Edge")
             plt.imshow(labels_edge[i, :, :, 0], cmap='gray', vmin=0, vmax=num_classes_labels_edge)
             plt.axis('off')
-            subplot_idx += num_exp
-        if labels_segmentation is not None:
-            plt.subplot(rows, num_exp, subplot_idx + i)
+            subplot_idx += 1
+    if labels_segmentation is not None:
+        for i in range(num_exp):
+            plt.subplot(rows, num_exp, subplot_idx)
             plt.title("Ground Truth Segmentation")
             plt.imshow(labels_segmentation[i, :, :, 0], cmap='gray', vmin=0, vmax=num_classes_labels_segmentation)
             plt.axis('off')
-            subplot_idx += num_exp
-        if predictions_edge is not None:
-            for j in range(num_classes_predictions_edge):
-                plt.subplot(rows, num_exp, subplot_idx + i)
+            subplot_idx += 1
+    if predictions_edge is not None:
+        for j in range(num_classes_predictions_edge):
+            for i in range(num_exp):
+                plt.subplot(rows, num_exp, subplot_idx)
                 plt.title("Estimation of class: {}".format(j + 1))
                 plt.imshow(predictions_edge[i, :, :, j], cmap='gray', vmin=0, vmax=1)
                 plt.axis('off')
-                subplot_idx += num_exp
-        if predictions_segmentation is not None:
-            for j in range(num_classes_predictions_segmentation):
-                plt.subplot(rows, num_exp, subplot_idx + i)
+                subplot_idx += 1
+    if predictions_segmentation is not None:
+        for j in range(num_classes_predictions_segmentation):
+            for i in range(num_exp):
+                plt.subplot(rows, num_exp, subplot_idx)
                 plt.title("Estimation of class: {}".format(j + 1))
                 plt.imshow(predictions_segmentation[i, :, :, j], cmap='gray', vmin=0, vmax=1)
                 plt.axis('off')
-                subplot_idx += num_exp
+                subplot_idx += 1
+        
+        prediction_max = np.where(predictions_segmentation > 0.5, 1.0, 0.0)
+        prediction_max = tools.squeeze_labels_to_single_dimension(prediction_max)
+        prediction_max_gt = \
+            prediction_max + tf.cast(
+                tf.image.resize(labels_edge * 10, (prediction_max.shape[1], prediction_max.shape[2])), tf.int32)
+        
+        prior_resized = tf.where(tf.cast(prior, tf.float32) >= 1.0, 1.0, 0.0)
+        prior_resized = tf.image.resize(prior_resized, (prediction_max.shape[1], prediction_max.shape[2]))
+        prior_resized = tf.where(prior_resized > 0.7, 1.0, 0.0)
+        prediction_max_prior = prediction_max + tf.cast(prior_resized, tf.int32)*20
+        for i in range(num_exp):
+            plt.subplot(rows, num_exp, subplot_idx)
+            plt.title("with ground truth")
+            plt.imshow(prediction_max_gt[i, :, :, 0], cmap='gray', vmin=0, vmax=8)
+            plt.axis('off')
+            subplot_idx += 1
+        for i in range(num_exp):
+            plt.subplot(rows, num_exp, subplot_idx)
+            plt.title("with ground truth")
+            plt.imshow(prediction_max_prior[i, :, :, 0], cmap='gray', vmin=0, vmax=8)
+            plt.axis('off')
+            subplot_idx += 1
     
     if save:
         plt.savefig(path + ".png", bbox_inches='tight')

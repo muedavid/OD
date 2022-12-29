@@ -77,27 +77,12 @@ class Model:
         
         segmentation_loss_cfg = self.cfg['LOSS']['segmentation']
         if self.cfg['LOSS']['segmentation']:
-            if segmentation_loss_cfg['focal']['apply'] == segmentation_loss_cfg['sigmoid']['apply']:
-                raise ValueError("Only and at least one of those edge functions should be applied")
-            if segmentation_loss_cfg['focal']['apply']:
-                focal_cfg = segmentation_loss_cfg['focal']
-                loss_functions[output_data_cfg["segmentation"]["name"]] = edge_losses.FocalLossEdges(focal_cfg['power'],
-                                                                                                     focal_cfg[
-                                                                                                         'edge_loss_weighting'],
-                                                                                                     focal_cfg[
-                                                                                                         'min_edge_loss_weighting'],
-                                                                                                     focal_cfg[
-                                                                                                         'max_edge_loss_weighting'])
-                self.custom_objects['FocalLossEdges'] = edge_losses.FocalLossEdges
+            loss_functions[output_data_cfg["segmentation"]["name"]] = edge_losses.SegmentationLoss(
+                segmentation_loss_cfg['min_edge_loss_weighting'],
+                segmentation_loss_cfg['max_edge_loss_weighting'],
+                segmentation_loss_cfg['class_individually_weighted'])
             
-            elif segmentation_loss_cfg['sigmoid']['apply']:
-                sigmoid_cfg = segmentation_loss_cfg['sigmoid']
-                loss_functions[output_data_cfg["segmentation"]["name"]] = edge_losses.WeightedMultiLabelSigmoidLoss(
-                    sigmoid_cfg['min_edge_loss_weighting'],
-                    sigmoid_cfg['max_edge_loss_weighting'],
-                    sigmoid_cfg['class_individually_weighted'])
-                
-                self.custom_objects['WeightedMultiLabelSigmoidLoss'] = edge_losses.WeightedMultiLabelSigmoidLoss
+            self.custom_objects['SegmentationLoss'] = edge_losses.SegmentationLoss
         
         return loss_functions
     

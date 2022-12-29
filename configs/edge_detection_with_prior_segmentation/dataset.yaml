@@ -32,7 +32,7 @@ out:
 #    shape: [320, 180]
   segmentation:
     name: "out_segmentation"
-    shape: [320, 180]
+    shape: [160, 90]
     mask_encoding: 1
   flow: null
     #name: "out_flow"

@@ -39,17 +39,9 @@ LOSS:
       max_edge_loss_weighting: 0.6
       power: 1.0
   segmentation:
-    sigmoid:
-      apply: true
-      class_individually_weighted: false
-      min_edge_loss_weighting: 0.4
-      max_edge_loss_weighting: 0.6
-    focal:
-      apply: false
-      edge_loss_weighting: true
-      min_edge_loss_weighting: 0.5
-      max_edge_loss_weighting: 0.5
-      power: 1.0
+    class_individually_weighted: false
+    min_edge_loss_weighting: 0.5
+    max_edge_loss_weighting: 0.5
   vert: null
   cont: null
   flow: null
