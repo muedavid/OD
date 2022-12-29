@@ -74,12 +74,23 @@ class FocalLossEdges(tf.keras.losses.Loss):
         self.max_edge_loss_weighting = max_edge_loss_weighting
         self.edge_loss_weighting = edge_loss_weighting
         self.power = power
+        size = 17
+        sig = 4
+        ax = np.linspace(-(size - 1) / 2., (size - 1) / 2., size)
+        gauss = np.exp(-0.5 * np.square(ax) / np.square(sig))
+        kernel = np.outer(gauss, gauss)
+        kernel = np.expand_dims(kernel, axis=[2, 3])
+        self.kernel = tf.constant(kernel, tf.float32)
     
-    # @tf.function
+    @tf.function
     def call(self, y_true, y_pred):
         dtype = tf.float32
         power = tf.cast(self.power, dtype=dtype)
         y_true = tf.cast(y_true, dtype=dtype)
+        
+        # reduce y_true
+        weight = tf.cast(tf.where(tf.reduce_sum(y_true, keepdims=True) > 0, 1.0, 0.0), tf.float32)
+        weight = tf.nn.conv2d(weight, self.kernel, strides=[1, 1, 1, 1], padding="SAME") + 0.3
         
         one = tf.constant(1.0, dtype=tf.float32)
         y_pred = tf.clip_by_value(y_pred, 0.005, 0.995)
@@ -106,7 +117,7 @@ class FocalLossEdges(tf.keras.losses.Loss):
                    (1 - y_true) * tf.math.pow(1 - zero_sig_out, power) * \
                    tf.math.log(tf.clip_by_value(zero_sig_out, 1e-10, 1000))
         
-        loss = tf.reduce_mean(tf.reduce_sum(tf.reduce_mean(loss, axis=-1), axis=[1, 2]))
+        loss = tf.reduce_mean(tf.reduce_sum(tf.reduce_mean(loss*weight, axis=-1), axis=[1, 2]))
         
         return loss
     

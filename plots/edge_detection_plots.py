@@ -6,8 +6,8 @@ from utils import tools
 import cv2
 
 
-def plot_edges(images=None, prior=None, labels_edge=None, labels_segmentation=None, predictions=None, save=False,
-               path=None, batch_size=0, num_exp=None):
+def plot_edges(images=None, prior=None, labels_edge=None, labels_segmentation=None, predictions_edge=None, save=False,
+               predictions_segmentation=None, path=None, batch_size=0, num_exp=None):
     if labels_edge is not None:
         num_classes_labels_edge = labels_edge.shape[-1]
         labels_edge = tools.squeeze_labels_to_single_dimension(labels_edge)
@@ -18,9 +18,12 @@ def plot_edges(images=None, prior=None, labels_edge=None, labels_segmentation=No
         num_classes_prior = prior.shape[-1]
         # prior = tools.squeeze_labels_to_single_dimension(prior)
     
-    num_classes_predictions = 0
-    if predictions is not None:
-        num_classes_predictions = predictions.shape[-1]
+    num_classes_predictions_edge = 0
+    if predictions_edge is not None:
+        num_classes_predictions_edge = predictions_edge.shape[-1]
+    num_classes_predictions_segmentation = 0
+    if predictions_segmentation is not None:
+        num_classes_predictions_segmentation = predictions_segmentation.shape[-1]
     
     if num_exp:
         num_exp = min(num_exp, batch_size)
@@ -28,36 +31,51 @@ def plot_edges(images=None, prior=None, labels_edge=None, labels_segmentation=No
         num_exp = batch_size
     
     rows = 1 + (prior is not None) + (labels_edge is not None) + (
-                labels_segmentation is not None) + num_classes_predictions * (predictions is not None)
+            labels_segmentation is not None) + num_classes_predictions_edge * (
+                       predictions_edge is not None) + num_classes_predictions_segmentation * (
+                       predictions_segmentation is not None)
     cols = num_exp
     plt.figure(figsize=(8 * cols, 8 * rows))
+    
+    subplot_idx = 1
     for i in range(num_exp):
-        plt.subplot(rows, cols, i + 1)
+        plt.subplot(rows, cols, subplot_idx + i)
         plt.title("Images")
         plt.imshow(tf.keras.preprocessing.image.array_to_img(images[i, :, :, :]))
         plt.axis('off')
+        subplot_idx = num_exp
         if prior is not None:
-            plt.subplot(rows, num_exp, num_exp + i + 1)
+            plt.subplot(rows, num_exp, subplot_idx + i)
             plt.title("Prior Edge Maps")
             plt.imshow(prior[i, :, :, 0], cmap='gray', vmin=0, vmax=num_classes_prior)
             plt.axis('off')
+            subplot_idx += num_exp
         if labels_edge is not None:
-            plt.subplot(rows, num_exp, (1 + (prior is not None)) * num_exp + i + 1)
+            plt.subplot(rows, num_exp, subplot_idx + i)
             plt.title("Ground Truth Edge")
             plt.imshow(labels_edge[i, :, :, 0], cmap='gray', vmin=0, vmax=num_classes_labels_edge)
             plt.axis('off')
+            subplot_idx += num_exp
         if labels_segmentation is not None:
-            plt.subplot(rows, num_exp, (1 + (prior is not None) + (labels_edge is not None)) * num_exp + i + 1)
+            plt.subplot(rows, num_exp, subplot_idx + i)
             plt.title("Ground Truth Segmentation")
             plt.imshow(labels_segmentation[i, :, :, 0], cmap='gray', vmin=0, vmax=num_classes_labels_segmentation)
             plt.axis('off')
-        if predictions is not None:
-            for j in range(num_classes_predictions):
-                plt.subplot(rows, num_exp, (1 + (prior is not None) + (labels_edge is not None) + (
-                            labels_segmentation is not None) + j) * num_exp + i + 1)
+            subplot_idx += num_exp
+        if predictions_edge is not None:
+            for j in range(num_classes_predictions_edge):
+                plt.subplot(rows, num_exp, subplot_idx + i)
                 plt.title("Estimation of class: {}".format(j + 1))
-                plt.imshow(predictions[i, :, :, j], cmap='gray', vmin=0, vmax=1)
+                plt.imshow(predictions_edge[i, :, :, j], cmap='gray', vmin=0, vmax=1)
                 plt.axis('off')
+                subplot_idx += num_exp
+        if predictions_segmentation is not None:
+            for j in range(num_classes_predictions_segmentation):
+                plt.subplot(rows, num_exp, subplot_idx + i)
+                plt.title("Estimation of class: {}".format(j + 1))
+                plt.imshow(predictions_segmentation[i, :, :, j], cmap='gray', vmin=0, vmax=1)
+                plt.axis('off')
+                subplot_idx += num_exp
     
     if save:
         plt.savefig(path + ".png", bbox_inches='tight')
