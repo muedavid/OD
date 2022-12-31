@@ -80,10 +80,10 @@ class EdgeDetector:
                                                                               self.output_data_cfg["edge"][
                                                                                   "num_classes"])
         
-        x1, x2 = pyramid_modules.viot_coarse_features_prior(out_3, input_edge,
-                                                        num_classes=self.output_data_cfg["edge"]["num_classes"],
-                                                        num_filters_per_class=num_filter_per_class,
-                                                        output_shape=self.output_data_cfg["edge"]["shape"])
+        x1, x2, x3, x4 = pyramid_modules.viot_coarse_features_prior(out_3, input_edge,
+                                                            num_classes=self.output_data_cfg["edge"]["num_classes"],
+                                                            num_filters_per_class=num_filter_per_class,
+                                                            output_shape=self.output_data_cfg["edge"]["shape"])
         
         side_1 = side_outputs.viot_side_feature_prior(out_2,
                                                       output_dims=self.output_data_cfg["edge"]["shape"],
@@ -95,7 +95,7 @@ class EdgeDetector:
                                                   output_name="out_edge")
         
         model = keras.Model(inputs=[inp, input_edge],
-                            outputs=[output, out_1, out_2, x1, x2, side_1])
+                            outputs=[output, out_1, out_2, x1, x2, x3, x4, side_1])
         
         return model
     
@@ -113,15 +113,16 @@ class EdgeDetector:
                                                                               self.output_data_cfg["segmentation"][
                                                                                   "num_classes"])
         
-        edge, segmentation = pyramid_modules. \
+        edge, segmentation, x1 = pyramid_modules. \
             viot_coarse_features_prior_segmentation(out_3, input_edge,
                                                     num_classes=self.output_data_cfg["segmentation"]["num_classes"],
                                                     num_filters_per_class=num_filter_per_class,
-                                                    output_shape_segmentation=self.output_data_cfg["segmentation"]["shape"],
+                                                    output_shape_segmentation=self.output_data_cfg["segmentation"][
+                                                        "shape"],
                                                     output_shape_edge=self.output_data_cfg["edge"]["shape"])
         
         side_segmentation, side_edge = \
-            side_outputs.viot_side_feature_prior_segmentation(out_1, out_2,
+            side_outputs.viot_side_feature_prior_segmentation(out_2, out_1,
                                                               output_dims_edge=self.output_data_cfg["edge"]["shape"],
                                                               output_dims_segmentation=
                                                               self.output_data_cfg["segmentation"]["shape"],
@@ -133,7 +134,7 @@ class EdgeDetector:
             num_classes=self.output_data_cfg["edge"]["num_classes"], num_filters_per_class=num_filter_per_class)
         
         model = keras.Model(inputs=[inp, input_edge],
-                            outputs=[out_edge, out_seg, side_segmentation, side_edge, segmentation, edge, out_1, out_2])
+                            outputs=[out_edge, out_seg, side_segmentation, side_edge, segmentation, edge, out_1, out_2, out_3, x1])
         
         return model
     

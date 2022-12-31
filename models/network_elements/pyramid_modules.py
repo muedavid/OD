@@ -20,23 +20,27 @@ def viot_coarse_features_no_prior(input_layer, num_classes, num_filters_per_clas
 def viot_coarse_features_prior(input_layer, input_edge, num_classes, num_filters_per_class, output_shape):
     num_filters = num_classes * num_filters_per_class
     
-    edge_1 = utils.convolution_block(input_edge, kernel_size=1, num_filters=6)
-    edge_1 = utils.convolution_block(edge_1, kernel_size=3, num_filters=6, separable=True)
+    edge_1 = utils.convolution_block(input_edge, kernel_size=3, num_filters=2, RELU=False)
+    edge_1 = utils.convolution_block(edge_1, kernel_size=3, num_filters=4, RELU=False)
     
-    image_1 = utils.convolution_block(input_layer, kernel_size=3, num_filters=12)
-    image_1_x = utils.convolution_block(image_1, kernel_size=3, num_filters=8)
-    image_1_avg = tf.keras.layers.AvgPool2D((5, 5), strides=1, padding="SAME")(image_1_x)
-    image_1_min = tf.keras.layers.MaxPooling2D((5, 5), strides=1, padding="SAME")(image_1_x*(-1))
-    image_1_max = tf.keras.layers.MaxPool2D((5, 5), strides=1, padding="SAME")(image_1_x)
-    
-    image_2 = tf.keras.layers.Concatenate()([edge_1, image_1_x, image_1_avg, image_1_min, image_1_max])
-    image_2 = utils.convolution_block(image_2, kernel_size=3, num_filters=24, separable=True, BN=False)
+    image_1 = utils.mobile_net_v2_inverted_residual(input_layer, depth_multiplier=6)
+    image_2 = tf.keras.layers.Concatenate()([edge_1, image_1])
     image_2 = utils.convolution_block(image_2, kernel_size=3, num_filters=12, separable=True)
-    image_2 = utils.convolution_block(image_2, kernel_size=3, num_filters=12)
+    image_2 = utils.convolution_block(image_2, kernel_size=3, num_filters=12, separable=True)
     image_2 = utils.convolution_block(image_2, kernel_size=1, num_filters=6)
+    image_2 = tf.keras.layers.Concatenate()([image_1, image_2])
+    image_2 = utils.convolution_block(image_2, kernel_size=1, num_filters=12)
+    image_2 = utils.convolution_block(image_2, kernel_size=1, num_filters=12)
+    image_2_x = utils.convolution_block(image_2, kernel_size=1, num_filters=8, separable=True)
+    image_1 = utils.convolution_block(image_1, kernel_size=3, num_filters=6)
+    image_2 = tf.keras.layers.Concatenate()([image_1, image_2_x])
+    image_2 = utils.convolution_block(image_2, kernel_size=1, num_filters=18)
+    image_2 = utils.convolution_block(image_2, kernel_size=3, num_filters=12, separable=True)
+    image_2 = utils.convolution_block(image_2, kernel_size=1, num_filters=6)
+    image_2 = utils.convolution_block(image_2, kernel_size=3, num_filters=6)
     
     image_2 = tf.image.resize(image_2, (output_shape[0], output_shape[1]), method="bilinear")
-    return image_2, image_1_x
+    return image_2, image_1, image_2_x, edge_1
 
 
 def viot_coarse_features_prior_segmentation(input_layer, input_edge, num_classes, num_filters_per_class,
@@ -44,34 +48,38 @@ def viot_coarse_features_prior_segmentation(input_layer, input_edge, num_classes
     num_filters = num_classes * num_filters_per_class
     
     # prior_edge = tf.where(input_edge > 0.3, 1.0, -1.0)
-    edge = utils.convolution_block(input_edge, kernel_size=1, num_filters=5)
-    edge_segmentation = utils.convolution_block(input_edge, kernel_size=3, depthwise=True)
-    edge_segmentation = utils.convolution_block(edge_segmentation, kernel_size=3, num_filters=5, separable=True)
+    edge = utils.convolution_block(input_edge, kernel_size=3, num_filters=5)
+    edge_segmentation = utils.convolution_block(input_edge, kernel_size=3, separable=True, num_filters=5)
+    edge_segmentation = utils.convolution_block(edge_segmentation, kernel_size=3, separable=True, num_filters=5)
     
-    image = utils.convolution_block(input_layer, kernel_size=3, num_filters=12, separable=True)
-    aw = utils.convolution_block(image, kernel_size=3, strides=3, separable=True, RELU=False, BN=False, num_filters=12)
-    aw = tf.keras.layers.Activation(activation="hard_sigmoid")(aw)
-    aw = tf.image.resize(aw, (image.shape[1], image.shape[2]))
-    image = image * aw
-    image = utils.convolution_block(image, kernel_size=3, num_filters=12)
+    image_1 = utils.convolution_block(input_layer, kernel_size=3, num_filters=12, separable=True)
     
-    image_edge = tf.keras.layers.Concatenate()([image, edge])
-
+    image_edge = utils.convolution_block(image_1, kernel_size=3, num_filters=12, separable=True)
+    image_edge = utils.convolution_block(image_edge, kernel_size=3, num_filters=12)
+    image_1_avg = tf.keras.layers.AvgPool2D((5, 5), strides=1, padding="SAME")(image_edge)
+    image_1_min = tf.keras.layers.MaxPool2D((3, 3), strides=1, padding="SAME")(image_edge * (-1))
+    image_1_max = tf.keras.layers.MaxPool2D((3, 3), strides=1, padding="SAME")(image_edge)
+    
+    image_edge = tf.keras.layers.Concatenate()([edge, image_edge, image_1_avg, image_1_min, image_1_max])
+    image_edge = utils.convolution_block(image_edge, kernel_size=3, num_filters=24, separable=True)
     image_edge = utils.convolution_block(image_edge, kernel_size=3, num_filters=12, separable=True)
-    image_edge = utils.convolution_block(image_edge, kernel_size=3, num_filters=6)
-    image_edge_avg = tf.keras.layers.AvgPool2D((3, 3), strides=1, padding="SAME")(image_edge)
-    image_edge_min = tf.keras.layers.MaxPool2D((3, 3), strides=1, padding="SAME")(image_edge*(-1))
-    image_edge = tf.keras.layers.Concatenate()([image_edge, image_edge_min, image_edge_avg])
-    image_edge = utils.convolution_block(image_edge, kernel_size=1, num_filters=12)
-    image_edge = utils.convolution_block(image_edge, kernel_size=3, num_filters=6, separable=True)
-    edge = tf.image.resize(image_edge, output_shape_edge, method="bilinear")
-
-    image_segmentation = tf.keras.layers.Concatenate()([image, edge_segmentation])
-    image_segmentation = utils.convolution_block(image_segmentation, kernel_size=3, num_filters=20)
+    image_edge = utils.convolution_block(image_edge, kernel_size=3, num_filters=12)
+    image_edge = utils.convolution_block(image_edge, kernel_size=1, num_filters=6)
+    
+    image_segmentation = tf.keras.layers.Concatenate()([image_1, edge_segmentation])
+    image_segmentation = utils.convolution_block(image_segmentation, kernel_size=3, num_filters=15)
+    image_segmentation = utils.convolution_block(image_segmentation, kernel_size=3, num_filters=15, separable=True)
+    aw = utils.convolution_block(image_segmentation, kernel_size=3, BN=False, num_filters=15)
+    aw = utils.convolution_block(aw, kernel_size=1, RELU=False, BN=False, num_filters=15)
+    aw = tf.keras.layers.Activation(activation="hard_sigmoid")(aw)
+    image_segmentation = image_segmentation * aw
     image_segmentation = utils.convolution_block(image_segmentation, kernel_size=5, num_filters=10, separable=True)
+    image_segmentation = utils.convolution_block(image_segmentation, kernel_size=3, num_filters=10)
+    
+    edge = tf.image.resize(image_edge, output_shape_edge, method="bilinear")
     
     segmentation = tf.image.resize(image_segmentation, output_shape_segmentation, method="bilinear")
-    return edge, segmentation
+    return edge, segmentation, image_1
 
 
 def viot_coarse_features_no_prior_dilation(daspp_input, num_classes, num_filters_per_class, output_shape):

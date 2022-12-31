@@ -186,7 +186,7 @@ class SegmentationLoss(tf.keras.losses.Loss):
                                         dilations=[1, 1, 1, 1], data_format="NHWC")
         weight_small = tf.nn.erosion2d(y_true, filter_dilation, strides=[1, 1, 1, 1], padding="SAME",
                                        dilations=[1, 1, 1, 1], data_format="NHWC")
-        weight = (weight_large - weight_small)*0.5 + 0.5
+        weight = (weight_large - weight_small)*0.5 + 1.0
         
         # Compute Beta
         if self.class_individually_weighted:
