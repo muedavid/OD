@@ -68,32 +68,78 @@ class WeightedMultiLabelSigmoidLoss(tf.keras.losses.Loss):
         base_config['class_individually_weighted'] = self.class_individually_weighted
         return base_config
 
+@tf.function
+def derivative_focal_loss(sig, gamma):
+    return - (1.0 / sig) * tf.pow(1.0 - sig, gamma) + gamma * tf.pow(1.0 - sig, gamma - 1.0) * tf.math.log(
+        sig) * sig * (1.0 - sig)
+
 
 class FocalLossEdges(tf.keras.losses.Loss):
-    def __init__(self, power=2, edge_loss_weighting=True, min_edge_loss_weighting=0.005, max_edge_loss_weighting=0.995,
+    def __init__(self, power=2.0, edge_loss_weighting=True, min_edge_loss_weighting=0.005,
+                 max_edge_loss_weighting=0.995,
                  name='focal_loss_edges'):
         super().__init__(name=name)
         self.min_edge_loss_weighting = min_edge_loss_weighting
         self.max_edge_loss_weighting = max_edge_loss_weighting
         self.edge_loss_weighting = edge_loss_weighting
-        self.power = power
-        size = 17
-        sig = 4
-        ax = np.linspace(-(size - 1) / 2., (size - 1) / 2., size)
-        gauss = np.exp(-0.5 * np.square(ax) / np.square(sig))
-        kernel = np.outer(gauss, gauss)
-        kernel = np.expand_dims(kernel, axis=[2, 3])
-        self.kernel = tf.constant(kernel, tf.float32)
+        self.power = tf.Variable(power, tf.float32)
+        self.iterations = tf.Variable(0, tf.int32)
     
     @tf.function
     def call(self, y_true, y_pred):
         dtype = tf.float32
-        power = tf.cast(self.power, dtype=dtype)
         y_true = tf.cast(y_true, dtype=dtype)
+        
+        # if self.power.value() > 0.005:
+        #     self.power.assign_sub(0.0005)
+        # else:
+        #     self.power.assign(0.0)
+        
+        power = tf.cast(self.power.value(), dtype=dtype)
+        self.iterations.assign_add(1)
+        
+        if self.iterations.value() % 2000 == 0 and self.power.value() > 0.0:
+            confidence = tf.reduce_mean(y_true * y_pred + (1.0 - y_true) * (1.0 - y_pred))
+            derivative_avg = derivative_focal_loss(confidence, self.power.value())
+            if -derivative_avg <= tf.constant(0.05):
+                tf.print("average is reduced \n \n \n ", derivative_avg)
+                tf.print(self.power.value())
+                self.power.assign_sub(1.0)
+        
+        # dist = 1
+        # y_true_list = [y_true]
+        # for i in range(dist):
+        #     filter_dilation = tf.zeros(shape=(1 + 2 * (i + 1), 1 + 2 * (i + 1), 1))
+        #     y_true_widen = tf.nn.dilation2d(y_true, filter_dilation, strides=[1, 1, 1, 1], padding="SAME",
+        #                                     dilations=[1, 1, 1, 1],
+        #                                     data_format="NHWC")
+        #     # y_true_list.append(y_true_widen * (1 - (i + 1) / (dist + 1)))
+        #     y_true_list.append(y_true_widen * 0.3)
+        # y_true = tf.keras.layers.Maximum()(y_true_list)
         
         # reduce y_true
         weight = tf.cast(tf.where(tf.reduce_sum(y_true, keepdims=True) > 0, 1.0, 0.0), tf.float32)
-        weight = tf.nn.conv2d(weight, self.kernel, strides=[1, 1, 1, 1], padding="SAME") + 0.3
+        filter_dilation = tf.zeros(shape=(11, 7, 1))
+        weight = tf.nn.dilation2d(weight, filter_dilation, strides=[1, 1, 1, 1], padding="SAME",
+                                  dilations=[1, 1, 1, 1], data_format="NHWC")
+        weight = weight + 0.5
+        
+        weight_edges = tf.cast(tf.where(tf.reduce_sum(y_true, keepdims=True) > 0, 1.0, 0.0), tf.float32)
+        weight_edges_ones = tf.ones(shape=(1, y_true.shape[1], y_true.shape[2], 1))
+        filter_dilation = tf.zeros(shape=(5, 5, 1))
+        weight_edges_widen = tf.nn.dilation2d(weight_edges, filter_dilation, strides=[1, 1, 1, 1], padding="SAME",
+                                              dilations=[1, 1, 1, 1], data_format="NHWC")
+        weight_edges = weight_edges_ones - weight_edges_widen + weight_edges
+        
+        # weight border:
+        padding = 5
+        weight_border = np.ones(shape=(1, y_true.shape[1], y_true.shape[2], 1))
+        for row in range(weight_border.shape[1]):
+            for col in range(weight_border.shape[2]):
+                if row < padding or row > weight_border.shape[1] - padding - 1 or col < padding or col > \
+                        weight_border.shape[2] - padding - 1:
+                    weight_border[:, row, col, :] = 0.0
+        weight_border = tf.constant(weight_border, tf.float32)
         
         one = tf.constant(1.0, dtype=tf.float32)
         y_pred = tf.clip_by_value(y_pred, 0.005, 0.995)
@@ -114,18 +160,19 @@ class FocalLossEdges(tf.keras.losses.Loss):
                     1.0 - y_true) * tf.math.pow(
                 one_sig_out, power) * tf.math.log(tf.clip_by_value(zero_sig_out, 1e-10, 1000))
             # asymetric: removed * tf.math.pow(zero_sig_out, power)
-            edge_loss = - edge_loss_weighting * y_true * tf.math.log(
+            edge_loss = - edge_loss_weighting * y_true * tf.math.pow(zero_sig_out, power) * tf.math.log(
                 tf.clip_by_value(one_sig_out, 1e-10, 1000))
             loss = background_loss + edge_loss
         else:
-            background_loss = - (1 - y_true) * tf.math.pow(1 - zero_sig_out, power) * \
+            background_loss = - (1.0 - y_true) * tf.math.pow(one_sig_out, power) * \
                               tf.math.log(tf.clip_by_value(zero_sig_out, 1e-10, 1000))
             # asymetric: removed * tf.math.pow(zero_sig_out, power)
-            edge_loss = - y_true * \
+            edge_loss = - y_true * tf.math.pow(zero_sig_out, power) * \
                         tf.math.log(tf.clip_by_value(one_sig_out, 1e-10, 1000))
             loss = background_loss + edge_loss
         
-        loss = tf.reduce_mean(tf.reduce_sum(tf.reduce_mean(loss * weight, axis=-1), axis=[1, 2]))
+        loss = tf.reduce_mean(tf.reduce_sum(tf.reduce_mean(loss, axis=-1), axis=[1, 2]))
+        loss = loss * weight_border * weight_edges * weight
         
         return loss
     
@@ -134,7 +181,7 @@ class FocalLossEdges(tf.keras.losses.Loss):
         base_config['min_edge_loss_weighting'] = self.min_edge_loss_weighting
         base_config['max_edge_loss_weighting'] = self.max_edge_loss_weighting
         base_config['edge_loss_weighting'] = self.edge_loss_weighting
-        base_config['power'] = self.power
+        # base_config['power'] = self.power.value()
         return base_config
 
 
@@ -181,12 +228,12 @@ class SegmentationLoss(tf.keras.losses.Loss):
         
         y_true = tf.cast(y_true, dtype=dtype)
         
-        filter_dilation = tf.zeros(shape=(7, 7, 5))
-        weight_large = tf.nn.dilation2d(y_true, filter_dilation, strides=[1, 1, 1, 1], padding="SAME",
-                                        dilations=[1, 1, 1, 1], data_format="NHWC")
-        weight_small = tf.nn.erosion2d(y_true, filter_dilation, strides=[1, 1, 1, 1], padding="SAME",
-                                       dilations=[1, 1, 1, 1], data_format="NHWC")
-        weight = (weight_large - weight_small)*0.5 + 1.0
+        # filter_dilation = tf.zeros(shape=(7, 7, 5))
+        # weight_large = tf.nn.dilation2d(y_true, filter_dilation, strides=[1, 1, 1, 1], padding="SAME",
+        #                                 dilations=[1, 1, 1, 1], data_format="NHWC")
+        # weight_small = tf.nn.erosion2d(y_true, filter_dilation, strides=[1, 1, 1, 1], padding="SAME",
+        #                                dilations=[1, 1, 1, 1], data_format="NHWC")
+        # weight = (weight_large - weight_small)*0.5 + 1.0
         
         # Compute Beta
         if self.class_individually_weighted:
@@ -212,7 +259,7 @@ class SegmentationLoss(tf.keras.losses.Loss):
         loss = -edge_loss_weighting * y_true * tf.math.log(tf.clip_by_value(one_sig_out, 1e-10, 1000)) - (
                 1 - edge_loss_weighting) * (
                        1 - y_true) * tf.math.log(tf.clip_by_value(zero_sig_out, 1e-10, 1000))
-        loss = loss * weight
+        # loss = loss * weight
         loss = tf.reduce_mean(tf.reduce_sum(loss, axis=[1, 2, 3])) / 5
         return loss
     

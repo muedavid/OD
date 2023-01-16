@@ -65,7 +65,7 @@ class EdgeDetector:
     
     def edge_detection_with_prior(self):
         if self.output_data_cfg["edge"]["num_classes"] == 1:
-            num_filter_per_class = 6
+            num_filter_per_class = 5
         else:
             num_filter_per_class = 2
         
@@ -81,9 +81,10 @@ class EdgeDetector:
                                                                                   "num_classes"])
         
         x1, x2, x3, x4 = pyramid_modules.viot_coarse_features_prior(out_3, input_edge,
-                                                            num_classes=self.output_data_cfg["edge"]["num_classes"],
-                                                            num_filters_per_class=num_filter_per_class,
-                                                            output_shape=self.output_data_cfg["edge"]["shape"])
+                                                                    num_classes=self.output_data_cfg["edge"][
+                                                                        "num_classes"],
+                                                                    num_filters_per_class=num_filter_per_class,
+                                                                    output_shape=self.output_data_cfg["edge"]["shape"])
         
         side_1 = side_outputs.viot_side_feature_prior(out_2,
                                                       output_dims=self.output_data_cfg["edge"]["shape"],
@@ -134,7 +135,8 @@ class EdgeDetector:
             num_classes=self.output_data_cfg["edge"]["num_classes"], num_filters_per_class=num_filter_per_class)
         
         model = keras.Model(inputs=[inp, input_edge],
-                            outputs=[out_edge, out_seg, side_segmentation, side_edge, segmentation, edge, out_1, out_2, out_3, x1])
+                            outputs=[out_edge, out_seg, side_segmentation, side_edge, segmentation, edge, out_1, out_2,
+                                     out_3, x1])
         
         return model
     

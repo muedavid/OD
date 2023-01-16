@@ -1,5 +1,5 @@
 TRAIN_MODEL: true
-EPOCHS: 50
+EPOCHS: 100
 
 NAME: edge_detection_with_prior_segmentation
 SAVE: true
@@ -48,7 +48,7 @@ LOSS:
 
 LR:
   START:  0.005
-  END:    0.0005
+  END:    0.0001
   POWER: 0.9
 
 CALLBACKS:

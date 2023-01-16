@@ -60,17 +60,17 @@ TRAIN:
   SHUFFLE: true
   PREFETCH: true
 
-  DATA_AUG: null
-#    blur: false
-#    brightness: 0.0
-#    contrast_factor: 0.75
-#    gaussian_value: 0.75
-#    hue: 0.1
-#    noise_std: 0
-#    saturation: 0.75
-#    sigma: 1.0
-#    strength_spot: 0.3
-#    value: 0.3
+  DATA_AUG:
+    blur: false
+    brightness: 0.1
+    contrast_factor: 0.9
+    # gaussian_value: 0.75
+    hue: 0.05
+    noise_std: 0
+    saturation: 0.9
+    sigma: 1.0
+    strength_spot: 0.3
+    value: 0.3
 
 IMG_ONLY:
   PATH: 'real'

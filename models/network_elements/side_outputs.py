@@ -15,22 +15,23 @@ def viot_side_feature(x1, output_dims, num_classes, num_filters_per_class, metho
 
 def viot_side_feature_prior(x1, output_dims, num_classes, num_filters_per_class, method="bilinear"):
     num_filters = num_filters_per_class * num_classes
-    x1 = utils.convolution_block(x1, kernel_size=3, separable=True, num_filters=num_filters)
-    x1 = utils.convolution_block(x1, kernel_size=1, num_filters=num_filters)
+    x1 = utils.convolution_block(x1, kernel_size=3, num_filters=num_filters, separable=True)
     
     if x1.shape[1] != output_dims[0]:
+        x1 = tf.keras.layers.DepthwiseConv2D(kernel_size=5, strides=1, padding="SAME", kernel_initializer=tf.keras.initializers.Constant(0.5), use_bias=False)(x1)
+        x1 = tf.keras.layers.BatchNormalization()(x1)
         x1 = tf.image.resize(x1, output_dims)
-        x1 = utils.convolution_block(x1, kernel_size=3, depthwise=True, BN=False, RELU=False)
+        
     return x1
 
 
 def viot_side_feature_prior_segmentation(x1, x2, output_dims_edge, output_dims_segmentation, num_classes,
                                          num_filters_per_class, method="bilinear"):
     num_filters = num_filters_per_class * num_classes
-    segmentation = utils.convolution_block(x1, kernel_size=3, num_filters=6, separable=True)
-    segmentation = utils.convolution_block(segmentation, kernel_size=3, num_filters=6)
+    segmentation = utils.convolution_block(x1, kernel_size=3, num_filters=10, separable=True)
+    segmentation = utils.mobile_net_v2_inverted_residual(segmentation, depth_multiplier=4)
     edge = utils.convolution_block(x2, kernel_size=3, num_filters=6, separable=True)
-    edge = utils.convolution_block(edge, kernel_size=3, num_filters=6)
+    edge = utils.convolution_block(edge, kernel_size=1, num_filters=6)
     
     if edge.shape[1] != output_dims_edge[0]:
         edge = tf.image.resize(edge, output_dims_edge)

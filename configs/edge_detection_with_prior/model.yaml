@@ -1,5 +1,5 @@
 TRAIN_MODEL: true
-EPOCHS: 500
+EPOCHS: 200
 
 NAME: edge_detection_with_prior
 SAVE: true
@@ -35,17 +35,17 @@ LOSS:
     focal:
       apply: true
       edge_loss_weighting: true
-      min_edge_loss_weighting: 0.5
-      max_edge_loss_weighting: 0.5
-      power: 0.5
+      min_edge_loss_weighting: 0.4
+      max_edge_loss_weighting: 0.6
+      power: 4.0
   vert: null
   segmentation: null
   cont: null
   flow: null
 
 LR:
-  START:  0.002
-  END:    0.00008
+  START:  0.001
+  END:    0.0005
   POWER: 0.9
 
 CALLBACKS:

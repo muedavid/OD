@@ -79,7 +79,7 @@ TRAIN:
 IMG_ONLY:
   PATH: 'real'
 
-  MAX_IMG: 15
+  MAX_IMG: 20
 
   BATCH_SIZE: 5
 

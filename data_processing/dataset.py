@@ -161,8 +161,12 @@ class DataProcessing:
                 mask_input = tf.image.decode_png(mask_input, channels=3)
                 idx = self.ds_inf[ds_type]['info']['mask']['edge']
                 mask = mask_input[:, :, idx:idx + 1]
-                dataset_dict[self.cfg["in"]['edge']["name"]] = \
-                    self.preprocess_mask(mask, ds_type, "edge", True)
+                if self.cfg["in"]['edge'] is not None:
+                    dataset_dict[self.cfg["in"]['edge']["name"]] = \
+                        self.preprocess_mask(mask, ds_type, "edge", True)
+                elif self.cfg["in"]['contour'] is not None:
+                    dataset_dict[self.cfg["in"]['contour']["name"]] = \
+                        self.preprocess_mask(mask, ds_type, "contour", True)
                 
         return dataset_dict
     
@@ -217,8 +221,8 @@ class DataProcessing:
             pad = tf.constant([[0, 0], [0, 0], [0, 0], [1, 0]])
             label = tf.pad(label, pad, "CONSTANT")
         
-        edge_width_height = int(current_shape_label[0] / self.cfg["out"]["edge"]["shape"][0]) + 1
-        edge_width_width = int(current_shape_label[1] / self.cfg["out"]["edge"]["shape"][1]) + 1
+        edge_width_height = int(current_shape_label[0] / mask_size[0]) + 1
+        edge_width_width = int(current_shape_label[1] / mask_size[1]) + 1
         kernel = tf.ones([edge_width_height, edge_width_width, num_classes + (already_reshaped is not True), 1],
                          tf.float32)
         label_pad = tf.cast(label, tf.float32)
@@ -226,8 +230,7 @@ class DataProcessing:
         label_widen = tf.cast(tf.clip_by_value(label_widen, 0, 1), tf.int32)
 
         
-        label_resized = tf.image.resize(label_widen, self.cfg["out"]["edge"]["shape"], method='nearest', antialias=True)
-        label_resized = tf.image.resize(label_resized, mask_size, method='bilinear', antialias=True)
+        label_resized = tf.image.resize(label_widen, mask_size, method='nearest', antialias=True)
         
         if not already_reshaped:
             label_resized = tf.math.argmax(label_resized, axis=-1, output_type=tf.int32)

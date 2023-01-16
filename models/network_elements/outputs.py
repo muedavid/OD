@@ -23,10 +23,10 @@ def viot_fusion_module_prior(dec_1, side_1, num_classes, num_filters_per_class, 
     # Note: Avoided indexing (memory consumption, avoided BN as values should start being meaningful as what they really are)
     num_filters = num_filters_per_class * num_classes
     side = tf.keras.layers.Concatenate()([side_1, dec_1])
-    side = utils.convolution_block(side, kernel_size=1, num_filters=2*num_filters)
-    side = utils.convolution_block(side, kernel_size=3, num_filters=num_filters, separable=True, BN=False)
-    side = utils.convolution_block(side, kernel_size=3, num_filters=num_filters, separable=True, BN=False)
-    output = utils.convolution_block(side, BN=False, RELU=False, num_filters=1, kernel_size=1)
+    side = utils.convolution_block(side, kernel_size=1, num_filters=3*num_filters)
+    side = utils.convolution_block(side, kernel_size=3, num_filters=2*num_filters, separable=True)
+    side = utils.convolution_block(side, kernel_size=3, num_filters=num_filters, separable=True)
+    output = utils.convolution_block(side, BN=False, RELU=False, num_filters=1, kernel_size=3)
     return tf.keras.layers.Activation(activation='sigmoid', name=output_name)(output)
 
 
@@ -35,13 +35,13 @@ def viot_fusion_module_prior_segmentation(dec_seg, dec_edge, side_seg, side_edge
     num_filters = num_filters_per_class * num_classes
     side_edge = tf.keras.layers.Concatenate()([side_edge, dec_edge])
     side_edge = utils.convolution_block(side_edge, kernel_size=1, num_filters=12)
-    side_edge = utils.convolution_block(side_edge, kernel_size=1, num_filters=6, separable=True, BN=False)
+    side_edge = utils.convolution_block(side_edge, kernel_size=3, num_filters=6, separable=True, BN=False)
     output_edge = utils.convolution_block(side_edge, kernel_size=3, num_filters=1, separable=True, BN=False, RELU=False)
     output_edge = tf.keras.layers.Activation(activation='sigmoid', name="out_edge")(output_edge)
     
     side_seg = tf.keras.layers.Concatenate()([side_seg, dec_seg])
-    side_seg = utils.convolution_block(side_seg, kernel_size=3, num_filters=15, separable=True)
-    side_seg = utils.convolution_block(side_seg, kernel_size=3, num_filters=10, BN=False)
+    side_seg = utils.convolution_block(side_seg, kernel_size=3, num_filters=20, separable=True)
+    side_seg = utils.convolution_block(side_seg, kernel_size=3, num_filters=20, separable=True)
     output_seg = utils.convolution_block(side_seg, kernel_size=1, num_filters=5, BN=False, RELU=False)
     output_seg = tf.keras.layers.Activation(activation='sigmoid', name="out_segmentation")(output_seg)
     return output_edge, output_seg
