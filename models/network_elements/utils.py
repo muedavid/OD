@@ -6,6 +6,7 @@ def convolution_block(block_input, name=None, num_filters=1, kernel_size=3, dila
     if separable and depthwise:
         raise ValueError("only one of the following arguments: separable or depthwise can be True")
     activation = "relu" if RELU else None
+    activation = None
     if separable:
         layer_name = None if name is None else name + '_separable_conv'
         x = tf.keras.layers.SeparableConv2D(num_filters, kernel_size=kernel_size, dilation_rate=dilation_rate,
@@ -26,9 +27,9 @@ def convolution_block(block_input, name=None, num_filters=1, kernel_size=3, dila
     if BN:
         layer_name = None if name is None else name + '_bn'
         x = tf.keras.layers.BatchNormalization(name=layer_name)(x)
-    # if RELU:
-    #     layer_name = None if name is None else name + '_relu'
-    #     x = tf.keras.layers.ReLU(name=layer_name)(x)
+    if RELU:
+        layer_name = None if name is None else name + '_relu'
+        x = tf.keras.layers.ReLU(name=layer_name)(x)
     return x
 
 def mobile_net_v2_inverted_residual(input_layer, depth_multiplier, output_depht_multiplier=1, strides=1):

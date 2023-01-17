@@ -106,23 +106,19 @@ def get_mobile_net(input_shape=(640, 360, 3), num_filters=8):
 def get_mobile_net_prior(input_shape=(640, 360, 3), num_filters=8):
     input_model = keras.Input(shape=input_shape, name="in_img")
     
-    # conv_1 = tf.keras.layers.DepthwiseConv2D(kernel_size=5, strides=1, padding="SAME",
-    #                                          kernel_initializer=tf.keras.initializers.glorot_normal, use_bias=False)(
-    #     input_model)
-    
-    conv_1 = utils.convolution_block(input_model, num_filters=10, kernel_size=3, strides=2, RELU=False)
-    conv_1 = utils.mobile_net_v2_inverted_residual(conv_1, depth_multiplier=4)
+    conv_1 = utils.convolution_block(input_model, num_filters=8, kernel_size=3, strides=2, RELU=False)
+    conv_1 = utils.mobile_net_v2_inverted_residual(conv_1, depth_multiplier=6)
     aw = tf.keras.layers.AveragePooling2D((3, 3), strides=3, padding="SAME")(conv_1)
-    aw = utils.convolution_block(aw, kernel_size=3, BN=False, RELU=True, num_filters=10, separable=True)
+    aw = utils.convolution_block(aw, kernel_size=3, BN=False, RELU=True, num_filters=8, separable=True)
     aw = tf.keras.layers.LayerNormalization()(aw)
     aw = tf.keras.layers.Activation(activation="hard_sigmoid")(aw)
     aw = tf.image.resize(aw, (conv_1.shape[1], conv_1.shape[2]))
     conv_1 = conv_1 * aw
-    conv_2 = utils.convolution_block(conv_1, kernel_size=3, num_filters=10)
+    conv_2 = utils.mobile_net_v2_inverted_residual(conv_1, depth_multiplier=2)
     
     # conv_2 = utils.convolution_block(conv_1, depthwise=True, kernel_size=3, strides=2, BN=False, RELU=False)
     
-    conv_3 = utils.convolution_block(conv_2, kernel_size=3, strides=2, num_filters=10, separable=True)
+    conv_3 = utils.convolution_block(conv_2, kernel_size=3, strides=2, num_filters=8, separable=True)
     
     return input_model, conv_1, conv_2, conv_3
 

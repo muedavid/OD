@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+from utils.tools import mask_pixels_for_computation
 
 
 class WeightedMultiLabelSigmoidLoss(tf.keras.losses.Loss):
@@ -83,7 +84,7 @@ class FocalLossEdges(tf.keras.losses.Loss):
         self.max_edge_loss_weighting = max_edge_loss_weighting
         self.edge_loss_weighting = edge_loss_weighting
         self.power = tf.Variable(power, tf.float32)
-        self.iterations = tf.Variable(0, tf.int32)
+        # self.iterations = tf.Variable(0, tf.int32)
     
     @tf.function
     def call(self, y_true, y_pred):
@@ -94,17 +95,19 @@ class FocalLossEdges(tf.keras.losses.Loss):
         #     self.power.assign_sub(0.0005)
         # else:
         #     self.power.assign(0.0)
+        mask = mask_pixels_for_computation(y_true)
         
         power = tf.cast(self.power.value(), dtype=dtype)
-        self.iterations.assign_add(1)
+        # self.iterations.assign_add(1)
         
-        if self.iterations.value() % 2000 == 0 and self.power.value() > 0.0:
-            confidence = tf.reduce_mean(y_true * y_pred + (1.0 - y_true) * (1.0 - y_pred))
-            derivative_avg = derivative_focal_loss(confidence, self.power.value())
-            if -derivative_avg <= tf.constant(0.05):
-                tf.print("average is reduced \n \n \n ", derivative_avg)
-                tf.print(self.power.value())
-                self.power.assign_sub(1.0)
+        # if self.iterations.value() % 2000 == 0 and self.power.value() > 0.0:
+        #     confidence = tf.reduce_sum((y_true * y_pred + (1.0 - y_true) * (1.0 - y_pred))*mask)
+        #     confidence = confidence / tf.reduce_sum(mask)
+        #     derivative_avg = derivative_focal_loss(confidence, self.power.value())
+        #     if -derivative_avg <= tf.constant(0.05):
+        #         tf.print("average is reduced \n \n \n ", derivative_avg)
+        #         tf.print(self.power.value())
+        #         self.power.assign_sub(1.0)
         
         # dist = 1
         # y_true_list = [y_true]
@@ -124,22 +127,7 @@ class FocalLossEdges(tf.keras.losses.Loss):
                                   dilations=[1, 1, 1, 1], data_format="NHWC")
         weight = weight + 0.5
         
-        weight_edges = tf.cast(tf.where(tf.reduce_sum(y_true, keepdims=True) > 0, 1.0, 0.0), tf.float32)
-        weight_edges_ones = tf.ones(shape=(1, y_true.shape[1], y_true.shape[2], 1))
-        filter_dilation = tf.zeros(shape=(5, 5, 1))
-        weight_edges_widen = tf.nn.dilation2d(weight_edges, filter_dilation, strides=[1, 1, 1, 1], padding="SAME",
-                                              dilations=[1, 1, 1, 1], data_format="NHWC")
-        weight_edges = weight_edges_ones - weight_edges_widen + weight_edges
         
-        # weight border:
-        padding = 5
-        weight_border = np.ones(shape=(1, y_true.shape[1], y_true.shape[2], 1))
-        for row in range(weight_border.shape[1]):
-            for col in range(weight_border.shape[2]):
-                if row < padding or row > weight_border.shape[1] - padding - 1 or col < padding or col > \
-                        weight_border.shape[2] - padding - 1:
-                    weight_border[:, row, col, :] = 0.0
-        weight_border = tf.constant(weight_border, tf.float32)
         
         one = tf.constant(1.0, dtype=tf.float32)
         y_pred = tf.clip_by_value(y_pred, 0.005, 0.995)
@@ -172,7 +160,7 @@ class FocalLossEdges(tf.keras.losses.Loss):
             loss = background_loss + edge_loss
         
         loss = tf.reduce_mean(tf.reduce_sum(tf.reduce_mean(loss, axis=-1), axis=[1, 2]))
-        loss = loss * weight_border * weight_edges * weight
+        loss = loss * mask * weight
         
         return loss
     

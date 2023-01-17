@@ -1,7 +1,7 @@
 import tensorflow as tf
 import argparse
 import yaml
-
+import numpy as np
 
 def predict_class_postprocessing(prediction, threshold=0.5):
     predictions = tf.math.sigmoid(prediction)
@@ -21,6 +21,29 @@ def predict_class_postprocessing(prediction, threshold=0.5):
 
     return predictions
 
+@tf.function
+def mask_pixels_for_computation(y_true):
+    # TODO (add those values to the config file)
+    dilation_size = 1
+    y_true = tf.cast(y_true, tf.float32)
+    weight_edges = tf.cast(tf.where(tf.reduce_sum(y_true, keepdims=True, axis=-1) > 0, 1.0, 0.0), tf.float32)
+    weight_edges_ones = tf.ones(shape=(1, y_true.shape[1], y_true.shape[2], 1))
+    filter_dilation = tf.zeros(shape=(2*dilation_size+1, 2*dilation_size+1, 1))
+    weight_edges_widen = tf.nn.dilation2d(weight_edges, filter_dilation, strides=[1, 1, 1, 1], padding="SAME",
+                                          dilations=[1, 1, 1, 1], data_format="NHWC")
+    weight_edges = weight_edges_ones - weight_edges_widen + weight_edges
+
+    # weight border:
+    padding = 5
+    weight_border = np.ones(shape=(1, y_true.shape[1], y_true.shape[2], 1))
+    for row in range(weight_border.shape[1]):
+        for col in range(weight_border.shape[2]):
+            if row < padding or row > weight_border.shape[1] - padding - 1 or col < padding or col > \
+                    weight_border.shape[2] - padding - 1:
+                weight_border[:, row, col, :] = 0.0
+    weight_border = tf.constant(weight_border, tf.float32)
+    
+    return weight_border * weight_edges
 
 def squeeze_labels_to_single_dimension(mask):
     pad = tf.constant([[0, 0], [0, 0], [0, 0], [1, 0]])

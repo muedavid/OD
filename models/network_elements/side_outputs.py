@@ -18,8 +18,6 @@ def viot_side_feature_prior(x1, output_dims, num_classes, num_filters_per_class,
     x1 = utils.convolution_block(x1, kernel_size=3, num_filters=num_filters, separable=True)
     
     if x1.shape[1] != output_dims[0]:
-        x1 = tf.keras.layers.DepthwiseConv2D(kernel_size=5, strides=1, padding="SAME", kernel_initializer=tf.keras.initializers.Constant(0.5), use_bias=False)(x1)
-        x1 = tf.keras.layers.BatchNormalization()(x1)
         x1 = tf.image.resize(x1, output_dims)
         
     return x1

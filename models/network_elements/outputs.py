@@ -3,10 +3,10 @@ from models.network_elements import utils
 
 
 def viot_fusion_module(dec_edge, side_1, side_2, num_classes, num_filters_per_class, output_name="out_edge"):
-    num_filters = num_filters_per_class*num_classes
+    num_filters = num_filters_per_class * num_classes
     fusion_1 = tf.keras.layers.Concatenate()([dec_edge, side_1, side_2])
-    fusion_1 = utils.convolution_block(fusion_1, kernel_size=1, num_filters=4*num_filters)
-    fusion_1 = utils.convolution_block(fusion_1, kernel_size=3, num_filters=4*num_filters, separable=True)
+    fusion_1 = utils.convolution_block(fusion_1, kernel_size=1, num_filters=4 * num_filters)
+    fusion_1 = utils.convolution_block(fusion_1, kernel_size=3, num_filters=4 * num_filters, separable=True)
     fusion_1 = utils.convolution_block(fusion_1, kernel_size=1, num_filters=num_filters, BN=False)
     # fusion_1 = utils.convolution_block(fusion_1, kernel_size=3, num_filters=num_filters, separable=True)
     output = utils.convolution_block(fusion_1, kernel_size=3, BN=False, RELU=False, num_filters=1)
@@ -15,7 +15,7 @@ def viot_fusion_module(dec_edge, side_1, side_2, num_classes, num_filters_per_cl
     # adaptive_weight = utils.convolution_block(adaptive_weight, kernel_size=1, num_filters=4, BN=False, RELU=False)
     # adaptive_weight = tf.keras.layers.Activation(activation="hard_sigmoid")(adaptive_weight)
     # fusion_1 = fusion_1 * adaptive_weight * dec_avg
-
+    
     return tf.keras.layers.Activation(activation='sigmoid', name=output_name)(output)
 
 
@@ -23,10 +23,11 @@ def viot_fusion_module_prior(dec_1, side_1, num_classes, num_filters_per_class, 
     # Note: Avoided indexing (memory consumption, avoided BN as values should start being meaningful as what they really are)
     num_filters = num_filters_per_class * num_classes
     side = tf.keras.layers.Concatenate()([side_1, dec_1])
-    side = utils.convolution_block(side, kernel_size=1, num_filters=3*num_filters)
-    side = utils.convolution_block(side, kernel_size=3, num_filters=2*num_filters, separable=True)
-    side = utils.convolution_block(side, kernel_size=3, num_filters=num_filters, separable=True)
-    output = utils.convolution_block(side, BN=False, RELU=False, num_filters=1, kernel_size=3)
+    side = utils.convolution_block(side, kernel_size=1, num_filters=3 * num_filters)
+    side = utils.convolution_block(side, kernel_size=1, num_filters=num_filters)
+    side = utils.convolution_block(side, kernel_size=3, num_filters=num_filters)
+    side = utils.convolution_block(side, kernel_size=3, num_filters=num_filters)
+    output = utils.convolution_block(side, BN=False, RELU=False, num_filters=1, kernel_size=1)
     return tf.keras.layers.Activation(activation='sigmoid', name=output_name)(output)
 
 
@@ -58,7 +59,7 @@ def lite_edge_output(decoder_output, sides, num_classes, output_name="out_edge",
         decoder = utils.convolution_block(decoder, kernel_size=1, num_filters=1, RELU=False, BN=False)
         
         out.append(decoder)
-
+    
     if num_classes == 1:
         output = out[0]
     else:
@@ -67,11 +68,9 @@ def lite_edge_output(decoder_output, sides, num_classes, output_name="out_edge",
     return tf.keras.layers.Activation(activation='sigmoid', name=output_name)(output)
 
 
-
-
 def shared_concatenation_and_classification_old(decoder_output, side_outputs, num_classes, num_filters_per_class,
                                                 name):
-    num_filters = num_filters_per_class*num_classes
+    num_filters = num_filters_per_class * num_classes
     sides = tf.keras.layers.Concatenate(axis=-1)(side_outputs)
     sides = utils.convolution_block(sides, num_filters=3, kernel_size=1, name="sides_concatenation")
     out = []
@@ -98,21 +97,17 @@ def shared_concatenation_and_classification_old(decoder_output, side_outputs, nu
 def FENet(decoder_output, sides, num_classes, output_shape=(320, 160)):
     decoder = tf.image.resize(decoder_output, output_shape)
     
-    dec = tf.keras.layers.Concatenate()([decoder]*4)
+    dec = tf.keras.layers.Concatenate()([decoder] * 4)
     
-    concat = tf.keras.layers.Concatenate()(sides*num_classes+[decoder])
+    concat = tf.keras.layers.Concatenate()(sides * num_classes + [decoder])
     
     adaptive_weight = utils.convolution_block(concat, kernel_size=1)
     adaptive_weight = utils.convolution_block(adaptive_weight, kernel_size=1, RELU=False)
     
-    output = dec*adaptive_weight
+    output = dec * adaptive_weight
     
     output = tf.reshape(output, [-1, output.shape[1], output.shape[2], 4, num_classes])
     
     output = tf.reduce_sum(output, axis=3)
     
     return tf.keras.layers.Activation(activation="sigmoid", name="out_edge")(output)
-    
-    
-    
-    
