@@ -24,6 +24,12 @@ def get_edge_weighting_matrix(y_true, pixels_at_edge_without_loss, edge_loss_wei
     return weight
 
 
+@tf.function
+def derivative_focal_loss(sig, gamma):
+    return - (1.0 / sig) * tf.pow(1.0 - sig, gamma) + gamma * tf.pow(1.0 - sig, gamma - 1.0) * tf.math.log(
+        sig) * sig * (1.0 - sig)
+
+
 class WeightedMultiLabelSigmoidLoss(tf.keras.losses.Loss):
     def __init__(self, min_edge_loss_weighting=0.005, max_edge_loss_weighting=0.995, class_individually_weighted=False,
                  padding=0, pixels_at_edge_without_loss=0, name='weighted_multi_label_sigmoid_loss'):
@@ -89,12 +95,6 @@ class WeightedMultiLabelSigmoidLoss(tf.keras.losses.Loss):
         base_config['padding'] = self.padding
         base_config['pixels_at_edge_without_loss'] = self.pixels_at_edge_without_loss
         return base_config
-
-
-@tf.function
-def derivative_focal_loss(sig, gamma):
-    return - (1.0 / sig) * tf.pow(1.0 - sig, gamma) + gamma * tf.pow(1.0 - sig, gamma - 1.0) * tf.math.log(
-        sig) * sig * (1.0 - sig)
 
 
 class FocalLossEdges(tf.keras.losses.Loss):
@@ -184,85 +184,6 @@ class FocalLossEdges(tf.keras.losses.Loss):
         base_config['pixels_at_edge_without_loss'] = self.pixels_at_edge_without_loss
         base_config['decay'] = self.decay
         base_config['focal_loss_derivative_threshold'] = self.focal_loss_derivative_threshold
-        return base_config
-
-
-class FlowLoss(tf.keras.losses.Loss):
-    def __init__(self, large_loss_threshold=4.0, name='flow_loss'):
-        super().__init__(name=name)
-        self.large_loss_threshold = large_loss_threshold
-    
-    @tf.function
-    def call(self, y_true, y_pred):
-        mult = 2.0
-        
-        large_loss = tf.where(tf.abs(y_true - y_pred) >= self.large_loss_threshold, 1.0, 0.0)
-        large_loss = tf.cast(large_loss, tf.float32)
-        
-        y_true_mask = tf.where(y_true != 0, 1, 0) == tf.where(tf.abs(y_true) <= 4, 1, 0)
-        y_true_mask = tf.cast(y_true_mask, tf.float32)
-        # smoothing_loss = tf.pow((y_pred-tf.reduce_mean(y_pred*y_true_mask, axis=[1, 2], keepdims=True), 2)*y_true_mask)
-        loss = mult * large_loss * tf.abs(y_true - y_pred) + \
-               mult / self.large_loss_threshold * (1 - large_loss) * tf.math.square(y_true - y_pred)
-        loss = loss * y_true_mask
-        return 10 * tf.reduce_sum(loss) / (tf.reduce_sum(y_true_mask) + 1)  # + tf.reduce_mean(smoothing_loss)
-    
-    def get_config(self):
-        base_config = super().get_config()
-        base_config['large_loss_threshold'] = self.large_loss_threshold
-        return base_config
-
-
-class SegmentationLoss(tf.keras.losses.Loss):
-    def __init__(self, min_edge_loss_weighting=0.005, max_edge_loss_weighting=0.995, class_individually_weighted=False,
-                 name='segmentation_loss'):
-        super().__init__(name=name)
-        self.min_edge_loss_weighting = min_edge_loss_weighting
-        self.max_edge_loss_weighting = max_edge_loss_weighting
-        self.class_individually_weighted = class_individually_weighted
-    
-    @tf.function
-    def call(self, y_true, y_pred):
-        dtype = tf.float32
-        
-        min_edge_loss_weighting = tf.cast(self.min_edge_loss_weighting, dtype=dtype)
-        max_edge_loss_weighting = tf.cast(self.max_edge_loss_weighting, dtype=dtype)
-        
-        y_true = tf.cast(y_true, dtype=dtype)
-        
-        # Compute Beta
-        if self.class_individually_weighted:
-            num_edge_pixel = tf.reduce_sum(y_true, axis=[1, 2], keepdims=True)
-        else:
-            num_edge_pixel = tf.reduce_sum(y_true, axis=[1, 2, 3], keepdims=True)
-        num_edge_pixel = tf.cast(num_edge_pixel, dtype=dtype)
-        num_pixel = y_true.shape[1] * y_true.shape[2]
-        num_pixel = tf.cast(num_pixel, dtype=dtype)
-        num_non_edge_pixel = num_pixel - num_edge_pixel
-        num_non_edge_pixel = tf.cast(num_non_edge_pixel, dtype=dtype)
-        edge_loss_weighting = num_non_edge_pixel / num_pixel
-        edge_loss_weighting = tf.clip_by_value(edge_loss_weighting, min_edge_loss_weighting, max_edge_loss_weighting)
-        
-        # Loss
-        edge_loss_weighting = tf.cast(edge_loss_weighting, dtype)
-        y_true = tf.cast(y_true, dtype)
-        y_prediction = tf.cast(y_pred, dtype)
-        one = tf.constant(1.0, dtype=dtype)
-        one_sig_out = y_prediction
-        zero_sig_out = one - one_sig_out
-        
-        loss = -edge_loss_weighting * y_true * tf.math.log(tf.clip_by_value(one_sig_out, 1e-10, 1000)) - (
-                1 - edge_loss_weighting) * (
-                       1 - y_true) * tf.math.log(tf.clip_by_value(zero_sig_out, 1e-10, 1000))
-        # loss = loss * weight
-        loss = tf.reduce_mean(tf.reduce_sum(loss, axis=[1, 2, 3])) / 5
-        return loss
-    
-    def get_config(self):
-        base_config = super().get_config()
-        base_config['min_edge_loss_weighting'] = self.min_edge_loss_weighting
-        base_config['max_edge_loss_weighting'] = self.max_edge_loss_weighting
-        base_config['class_individually_weighted'] = self.class_individually_weighted
         return base_config
 
 

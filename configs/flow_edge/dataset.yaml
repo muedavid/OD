@@ -1,20 +1,17 @@
-NAME: edge_detection
+NAME: dataset_with_flow_field
 
 BASE_PATH_DATA: /home/david/SemesterProject/Datasets
 DATASET_JSON: dataset.json
-
-# 0: INSTANCE, 1: CATEGORY, 2: BINARY
-MASK_TYPE:
-  edge: 2
-  cont: 1
-  vert: 1
 
 # mask encoding types: 0: INSTANCE, 1: CATEGORY, 2: BINARY
 in:
   img:
     name: "in_img"
-    shape: [ 640, 360 ]
-  edge: null
+    shape: [640, 360]
+  edge:
+    name: "in_edge"
+    mask_encoding: 2
+    shape: [ 160, 90 ]
   contour: null
   segmentation: null
   prior_img: null
@@ -23,21 +20,21 @@ out:
   edge:
     name: "out_edge"
     mask_encoding: 2
-    shape: [ 320, 180 ]
+    shape: [ 160, 90 ]
   contour: null
   segmentation: null
-  flow: null
-
-# As already implemented just as additional information and example on how to load
-VERT_LIST: false
+  flow:
+    name: "out_flow"
+    only_edge: true
+    shape: [ 20, 12 ]
 
 
 # DATASETS:
 TEST:
   NAME: Test
-  MAX_IMG: 100
+  MAX_IMG: 300
 
-  BATCH_SIZE: 5
+  BATCH_SIZE: 3
   # BATCH_SIZE: 1
   CACHE: true
   SHUFFLE: false
@@ -50,22 +47,23 @@ TRAIN:
   # MAX_IMG: 1500
   MAX_IMG: 1500
 
-  BATCH_SIZE: 5
+  BATCH_SIZE: 3
   # BATCH_SIZE: 1
   CACHE: true
   SHUFFLE: true
   PREFETCH: true
 
   DATA_AUG: null
-#    blur: false
-#    brightness: 0.2
-#    contrast_factor: 0.7
-#    gaussian_value: 0.0
-#    hue: 0.05
-#    noise_std: 0.0
-#    saturation: 0.7
-#    sigma: 1.0
-#    strength_spot: 0.1
-#    value: 0.1
 
 IMG_ONLY: null
+#  PATH: 'real_world'
+#
+#  MAX_IMG: 41
+#
+#  BATCH_SIZE: 5
+#
+#  CACHE: true
+#  SHUFFLE: false
+#  PREFETCH: true
+#
+#  DATA_AUG: null

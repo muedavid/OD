@@ -160,7 +160,7 @@ def flow_edge(image_layer, edge_layer):
     img_out = tf.keras.layers.Concatenate(axis=-1)([image_layer, image_layer_out])
     img_out = tf.keras.layers.Conv2D(filters=1, kernel_size=1)(img_out)
     img_out = tf.keras.layers.Activation(activation="sigmoid", name="out_edge")(img_out)
-    return flow_out, img_out, flow_o, flow_o1
+    return flow_out, img_out
 
 
 # LiteEdge Paper

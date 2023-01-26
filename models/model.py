@@ -3,7 +3,7 @@ import tensorflow as tf
 import numpy as np
 from datetime import datetime
 from models import model_data, network
-from losses import edge_losses
+from losses import edge_losses, flow_losses
 from metrics import metrics
 from utils import tools
 from plots import edge_detection_plots
@@ -76,8 +76,8 @@ class Model:
                 
                 self.custom_objects['WeightedMultiLabelSigmoidLoss'] = edge_losses.WeightedMultiLabelSigmoidLoss
         if self.cfg['LOSS']['flow']:
-            loss_functions['out_flow'] = edge_losses.FlowLoss()
-            self.custom_objects['FlowLoss'] = edge_losses.FlowLoss
+            loss_functions['out_flow'] = flow_losses.FlowLoss()
+            self.custom_objects['FlowLoss'] = flow_losses.FlowLoss
         
         if self.cfg['LOSS']['segmentation']:
             loss_functions[output_data_cfg["segmentation"]["name"]] = tf.keras.losses.CategoricalCrossentropy(

@@ -7,10 +7,6 @@ SEED: null
 PARSER: false
 CONVERT_TO_TFLITE: false
 
-# Not valid for segmentation, as not custom loss. Could easily be integrated
-PADDING: 0
-PIXELS_AT_EDGE_WITHOUT_LOSS: 0
-
 LOSS:
   edge: null
   segmentation: true

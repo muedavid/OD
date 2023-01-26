@@ -129,7 +129,7 @@ class DataProcessing:
             image = tf.image.resize(image, self.cfg["in"]["prior_img"]["shape"], method='bilinear')
             image = tf.cast(image, tf.uint8)
             dataset_dict[self.cfg["in"]["prior_img"]["name"]] = image
-
+        
         if self.paths[ds_type]["PRIOR_ANN"]:
             # mask input:
             mask_base_path = tf.constant(self.paths[ds_type]['PRIOR_ANN'], dtype=tf.string)
@@ -154,7 +154,7 @@ class DataProcessing:
                 mask = mask_output[:, :, idx:idx + 1]
                 dataset_dict[self.cfg["out"][mask_type]["name"]] = \
                     self.preprocess_mask(mask, ds_type, mask_type, False)
-                
+        
         # else:
         #     if self.paths[ds_type]["PRIOR_ANN"]:
         #         mask_base_path = tf.constant(self.paths[ds_type]['PRIOR_ANN'], dtype=tf.string)
@@ -169,7 +169,7 @@ class DataProcessing:
         #         elif self.cfg["in"]['contour'] is not None:
         #             dataset_dict[self.cfg["in"]['contour']["name"]] = \
         #                 self.preprocess_mask(mask, ds_type, "contour", True)
-                
+        
         return dataset_dict
     
     def preprocess_mask(self, mask, ds_type, mask_type, cfg_input_key):
@@ -192,10 +192,12 @@ class DataProcessing:
                 mask = tf.where(mask == int(inst), cat, mask)
             mask = tf.cast(mask, tf.uint8)
             
-            self.num_classes[cfg_first_key][mask_type] = len(self.ds_inf[ds_type]["cat2obj"]) + (mask_type == "segmentation")
+            self.num_classes[cfg_first_key][mask_type] = len(self.ds_inf[ds_type]["cat2obj"]) + (
+                        mask_type == "segmentation")
         else:
-            self.num_classes[cfg_first_key][mask_type] = len(self.ds_inf[ds_type]["obj2cat"]) + (mask_type == "segmentation")
-
+            self.num_classes[cfg_first_key][mask_type] = len(self.ds_inf[ds_type]["obj2cat"]) + (
+                        mask_type == "segmentation")
+        
         # reshape:
         shape = tf.shape(mask)
         current_shape = (shape[0], shape[1])
@@ -228,7 +230,6 @@ class DataProcessing:
         label_pad = tf.cast(label, tf.float32)
         label_widen = tf.nn.depthwise_conv2d(label_pad, kernel, strides=[1, 1, 1, 1], padding="SAME")
         label_widen = tf.cast(tf.clip_by_value(label_widen, 0, 1), tf.int32)
-
         
         label_resized = tf.image.resize(label_widen, mask_size, method='nearest', antialias=True)
         
@@ -239,12 +240,14 @@ class DataProcessing:
         return label
     
     def combine_ds(self, dataset_dict, flow_field):
-        flow_field = tf.image.resize(flow_field, self.cfg["out"]["flow"]["shape"], method='bilinear')
+        flow_field = tf.image.resize(flow_field, self.cfg["out"]["flow"]["shape"], method='bilinear')[:, :, 0:2]
         ds_name = self.cfg["out"]["flow"]["name"]
         dataset_dict[ds_name] = flow_field
         if self.cfg["out"]["flow"]["only_edge"]:
             edge_label = tf.where(tf.reduce_sum(dataset_dict['in_edge'], axis=-1, keepdims=True) > 0, 1, 0)
-            dataset_dict[ds_name] = dataset_dict[ds_name] * tf.cast(edge_label)
+            edge_label = self.resize_label_map(edge_label, (edge_label.shape[1], edge_label.shape[2]), 1,
+                                               self.cfg["out"]["flow"]["shape"])
+            dataset_dict[ds_name] = dataset_dict[ds_name] * tf.cast(edge_label, tf.float32)
         return dataset_dict
     
     def load_flow_ds(self, ds_type, max_idx):
@@ -329,4 +332,3 @@ def reshape_mask_segmentation(mask, num_classes):
     mask = tf.cast(class_range_reshape == mask, dtype=tf.uint8)
     
     return mask
-

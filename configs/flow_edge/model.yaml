@@ -1,11 +1,14 @@
 TRAIN_MODEL: true
-EPOCHS: 200
+EPOCHS: 1000
 
 NAME: flow_edge
 SAVE: true
 SEED: null
 PARSER: false
-CONVERT_TO_TFLITE: true
+CONVERT_TO_TFLITE: false
+
+PADDING: 2
+PIXELS_AT_EDGE_WITHOUT_LOSS: 1
 
 BACKBONE:
   NAME: MobileNetV2
@@ -25,36 +28,35 @@ LOSS:
   edge:
     sigmoid:
       apply: false
-      class_individually_weighted: true
-      min_edge_loss_weighting: 0.0005
-      max_edge_loss_weighting: 0.9995
+      class_individually_weighted: false
+      # Values are set, such that recall and precision are similar
+      min_edge_loss_weighting: 0.15
+      max_edge_loss_weighting: 0.85
     focal:
       apply: true
       edge_loss_weighting: true
-      min_edge_loss_weighting: 0.5
-      max_edge_loss_weighting: 0.5
-      power: 2.0
+      # Values are set, such that recall and precision are similar
+      min_edge_loss_weighting: 0.2
+      max_edge_loss_weighting: 0.8
+      power: 4.0
+      decay: true
+      focal_loss_derivative_threshold: 0.05
   vert: null
+  segmentation: null
   cont: null
-  flow_edge: null
-  flow_scene: true
+  flow: True
 
 LR:
   START:  0.001
-  END:    0.0001
+  END:    0.00005
   POWER: 0.9
 
 CALLBACKS:
   DEL_OLD_CKPT: true
-  CKPT_FREQ: 2000
+  CKPT_FREQ: 10
   DEL_OLD_TB: true
   LOG_TB: false
   TENSORBOARD: false
 
 CATEGORIES:
   edge: 1
-#  base: 1
-#  bar: 2
-#  cover: 3
-#  elektro: 4
-#  tube: 5
