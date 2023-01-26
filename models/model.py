@@ -2,10 +2,11 @@ import os
 import tensorflow as tf
 import numpy as np
 from datetime import datetime
-from models import model_data, edge_detector
+from models import model_data, network
 from losses import edge_losses
 from metrics import metrics
 from utils import tools
+from plots import edge_detection_plots
 from tflite_support.metadata_writers import image_segmenter
 from tflite_support.metadata_writers import writer_utils
 
@@ -29,9 +30,8 @@ class Model:
         self.train_model = self.cfg['TRAIN_MODEL']
     
     def get_neural_network_model(self, input_data_cfg, output_data_cfg):
-        if self.cfg['MODEL']['TYPE'] == 'edge detector':
-            model = edge_detector.EdgeDetector(self.cfg, input_data_cfg, output_data_cfg)
-            return model.get_model()
+        model = network.NN(self.cfg, input_data_cfg, output_data_cfg)
+        return model.get_model()
     
     def get_best_model_from_checkpoints(self):
         print(self.Data.get_model_path_max_f1())
@@ -54,13 +54,16 @@ class Model:
                 raise ValueError("Only and at least one of those edge functions should be applied")
             if edge_loss_cfg['focal']['apply']:
                 focal_cfg = edge_loss_cfg['focal']
-                loss_functions[output_data_cfg["edge"]["name"]] = edge_losses.FocalLossEdges(focal_cfg['power'],
-                                                                                             focal_cfg[
-                                                                                                 'edge_loss_weighting'],
-                                                                                             focal_cfg[
-                                                                                                 'min_edge_loss_weighting'],
-                                                                                             focal_cfg[
-                                                                                                 'max_edge_loss_weighting'])
+                loss_functions[output_data_cfg["edge"]["name"]] = \
+                    edge_losses.FocalLossEdges(power=focal_cfg['power'],
+                                               edge_loss_weighting=focal_cfg['edge_loss_weighting'],
+                                               min_edge_loss_weighting=focal_cfg['min_edge_loss_weighting'],
+                                               max_edge_loss_weighting=focal_cfg['max_edge_loss_weighting'],
+                                               padding=self.cfg['PADDING'],
+                                               pixels_at_edge_without_loss=self.cfg['PIXELS_AT_EDGE_WITHOUT_LOSS'],
+                                               decay=focal_cfg["decay"],
+                                               focal_loss_derivative_threshold=focal_cfg[
+                                                   'focal_loss_derivative_threshold'])
                 self.custom_objects['FocalLossEdges'] = edge_losses.FocalLossEdges
             
             elif edge_loss_cfg['sigmoid']['apply']:
@@ -68,56 +71,51 @@ class Model:
                 loss_functions[output_data_cfg["edge"]["name"]] = edge_losses.WeightedMultiLabelSigmoidLoss(
                     sigmoid_cfg['min_edge_loss_weighting'],
                     sigmoid_cfg['max_edge_loss_weighting'],
-                    sigmoid_cfg['class_individually_weighted'])
+                    sigmoid_cfg['class_individually_weighted'],
+                    self.cfg['PADDING'], self.cfg['PIXELS_AT_EDGE_WITHOUT_LOSS'])
                 
                 self.custom_objects['WeightedMultiLabelSigmoidLoss'] = edge_losses.WeightedMultiLabelSigmoidLoss
         if self.cfg['LOSS']['flow']:
             loss_functions['out_flow'] = edge_losses.FlowLoss()
             self.custom_objects['FlowLoss'] = edge_losses.FlowLoss
         
-        segmentation_loss_cfg = self.cfg['LOSS']['segmentation']
         if self.cfg['LOSS']['segmentation']:
-            loss_functions[output_data_cfg["segmentation"]["name"]] = edge_losses.SegmentationLoss(
-                segmentation_loss_cfg['min_edge_loss_weighting'],
-                segmentation_loss_cfg['max_edge_loss_weighting'],
-                segmentation_loss_cfg['class_individually_weighted'])
-            
-            self.custom_objects['SegmentationLoss'] = edge_losses.SegmentationLoss
+            loss_functions[output_data_cfg["segmentation"]["name"]] = tf.keras.losses.CategoricalCrossentropy(
+                from_logits=True)
         
         return loss_functions
     
     def get_metrics(self, output_data_cfg):
         metric_dic = dict()
         
-        # TODO(Remove edge argument)
-        
         if self.cfg['LOSS']['edge']:
             metric_dic[output_data_cfg["edge"]["name"]] = [
                 metrics.BinaryAccuracyEdges(num_classes=output_data_cfg['edge']['num_classes'],
                                             classes_individually=True,
-                                            threshold_prediction=0.5),
+                                            threshold_prediction=0.5,
+                                            padding=self.cfg['PADDING'],
+                                            pixels_at_edge_without_loss=self.cfg['PIXELS_AT_EDGE_WITHOUT_LOSS'],
+                                            print_name="edge"),
                 metrics.F1Edges(num_classes=output_data_cfg['edge']['num_classes'], classes_individually=True,
-                                threshold_prediction=0.5, threshold_edge_width=0)]
+                                threshold_prediction=0.5,
+                                padding=self.cfg['PADDING'],
+                                pixels_at_edge_without_loss=self.cfg['PIXELS_AT_EDGE_WITHOUT_LOSS'],
+                                print_name="edge")]
             
             self.custom_objects['BinaryAccuracyEdges'] = metrics.BinaryAccuracyEdges
             self.custom_objects['F1Edges'] = metrics.F1Edges
         if self.cfg['LOSS']['segmentation']:
-            metric_dic[output_data_cfg["segmentation"]["name"]] = [
-                metrics.BinaryAccuracyEdges(num_classes=output_data_cfg['segmentation']['num_classes'],
-                                            classes_individually=True,
-                                            threshold_prediction=0.5, print_name="segmentation"),
-                metrics.F1Edges(num_classes=output_data_cfg['segmentation']['num_classes'], classes_individually=True,
-                                threshold_prediction=0.5, threshold_edge_width=0, print_name="segmentation")]
-            
-            self.custom_objects['BinaryAccuracyEdges'] = metrics.BinaryAccuracyEdges
-            self.custom_objects['F1Edges'] = metrics.F1Edges
+            metric_dic[output_data_cfg["segmentation"]["name"]] = [tf.keras.metrics.CategoricalAccuracy()]
         return metric_dic
     
-    def get_callbacks(self):
+    def get_callbacks(self, f1_edge_logged=True):
         # freq = int(np.ceil(img_count / self.bs) * self.cfg["CALLBACKS"]["CKPT_FREQ"]) + 1
-        
+        if f1_edge_logged:
+            filepath = self.Data.paths["CKPT"] + "/ckpt-loss={val_loss:.2f}-epoch={epoch:.2f}-f1={val_f1_edge:.4f}"
+        else:
+            filepath = self.Data.paths["CKPT"] + "/ckpt-loss={val_loss:.2f}-epoch={epoch:.2f}"
         callbacks = [tf.keras.callbacks.ModelCheckpoint(
-            filepath=self.Data.paths["CKPT"] + "/ckpt-loss={val_loss:.2f}-epoch={epoch:.2f}-f1={val_f1_edges:.4f}",
+            filepath=filepath,
             save_weights_only=False, save_best_only=False, monitor="val_f1", verbose=1, save_freq='epoch',
             period=self.cfg["CALLBACKS"]["CKPT_FREQ"])]
         
@@ -133,6 +131,19 @@ class Model:
                                                                     end_learning_rate=self.cfg['LR']['END'],
                                                                     power=self.cfg['LR']['POWER'])
         return lr_schedule
+    
+    def evaluate_and_plot_MF_score(self, model, dataset, num_classes, path, threshold_edge_width=0.0):
+        edge_detection_plots.plot_threshold_metrics_evaluation(model=model,
+                                                               ds=dataset,
+                                                               num_classes=num_classes,
+                                                               classes_displayed_individually=True,
+                                                               save=self.cfg["SAVE"],
+                                                               path=path,
+                                                               accuracy_y_lim_min=0.8,
+                                                               padding=self.cfg["PADDING"],
+                                                               pixels_at_edge_without_loss=self.cfg[
+                                                                   'PIXELS_AT_EDGE_WITHOUT_LOSS'],
+                                                               threshold_edge_width=threshold_edge_width)
     
     def convert_model_to_tflite(self, model):
         if not os.path.isfile(self.Data.files['OUTPUT_TFLITE_MODEL']):

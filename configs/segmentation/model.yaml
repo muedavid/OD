@@ -1,0 +1,38 @@
+TRAIN_MODEL: true
+EPOCHS: 10
+
+NAME: segmentation
+SAVE: true
+SEED: null
+PARSER: false
+CONVERT_TO_TFLITE: false
+
+# Not valid for segmentation, as not custom loss. Could easily be integrated
+PADDING: 0
+PIXELS_AT_EDGE_WITHOUT_LOSS: 0
+
+LOSS:
+  edge: null
+  segmentation: true
+  vert: null
+  cont: null
+  flow: null
+
+LR:
+  START:  0.005
+  END:    0.0001
+  POWER: 0.9
+
+CALLBACKS:
+  DEL_OLD_CKPT: true
+  CKPT_FREQ: 10
+  DEL_OLD_TB: true
+  LOG_TB: false
+  TENSORBOARD: false
+
+CATEGORIES:
+  base: 1
+  bar: 2
+  cover: 3
+  elektro: 4
+  tube: 5

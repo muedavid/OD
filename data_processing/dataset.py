@@ -117,20 +117,20 @@ class DataProcessing:
         img_path = tf.strings.join([img_base_path, sep_str, img_idx_str, end_str])
         image = tf.io.read_file(img_path)
         image = tf.image.decode_png(image, channels=3)
-        image = tf.image.resize(image, self.cfg["in"]["img"]["shape"], method="nearest")
+        image = tf.image.resize(image, self.cfg["in"]["img"]["shape"], method="bilinear", antialias=True)
         image = tf.cast(image, tf.uint8)
         dataset_dict[self.cfg["in"]["img"]["name"]] = image
         
-        if ds_type != 'IMG_ONLY':
-            if self.cfg["in"]["prior_img"]:
-                img_base_path = tf.constant(self.paths[ds_type]["PRIOR_IMG"], dtype=tf.string)
-                img_path = tf.strings.join([img_base_path, sep_str, img_idx_str, end_str])
-                image = tf.io.read_file(img_path)
-                image = tf.image.decode_png(image, channels=3)
-                image = tf.image.resize(image, self.cfg["in"]["prior_img"]["shape"], method='area')
-                image = tf.cast(image, tf.uint8)
-                dataset_dict[self.cfg["in"]["prior_img"]["name"]] = image
-            
+        if self.cfg["in"]["prior_img"] and self.paths[ds_type]["PRIOR_IMG"]:
+            img_base_path = tf.constant(self.paths[ds_type]["PRIOR_IMG"], dtype=tf.string)
+            img_path = tf.strings.join([img_base_path, sep_str, img_idx_str, end_str])
+            image = tf.io.read_file(img_path)
+            image = tf.image.decode_png(image, channels=3)
+            image = tf.image.resize(image, self.cfg["in"]["prior_img"]["shape"], method='bilinear')
+            image = tf.cast(image, tf.uint8)
+            dataset_dict[self.cfg["in"]["prior_img"]["name"]] = image
+
+        if self.paths[ds_type]["PRIOR_ANN"]:
             # mask input:
             mask_base_path = tf.constant(self.paths[ds_type]['PRIOR_ANN'], dtype=tf.string)
             mask_path = tf.strings.join([mask_base_path, sep_str, img_idx_str, end_str])
@@ -141,7 +141,8 @@ class DataProcessing:
                 mask = mask_input[:, :, idx:idx + 1]
                 dataset_dict[self.cfg["in"][mask_type]["name"]] = \
                     self.preprocess_mask(mask, ds_type, mask_type, True)
-            
+        
+        if self.paths[ds_type]["ANN"]:
             # mask output:
             mask_base_path = tf.constant(self.paths[ds_type]['ANN'], dtype=tf.string)
             mask_path = tf.strings.join([mask_base_path, sep_str, img_idx_str, end_str])
@@ -153,20 +154,21 @@ class DataProcessing:
                 mask = mask_output[:, :, idx:idx + 1]
                 dataset_dict[self.cfg["out"][mask_type]["name"]] = \
                     self.preprocess_mask(mask, ds_type, mask_type, False)
-        else:
-            if self.paths[ds_type]["PRIOR_ANN"]:
-                mask_base_path = tf.constant(self.paths[ds_type]['PRIOR_ANN'], dtype=tf.string)
-                mask_path = tf.strings.join([mask_base_path, sep_str, img_idx_str, end_str])
-                mask_input = tf.io.read_file(mask_path)
-                mask_input = tf.image.decode_png(mask_input, channels=3)
-                idx = self.ds_inf[ds_type]['info']['mask']['edge']
-                mask = mask_input[:, :, idx:idx + 1]
-                if self.cfg["in"]['edge'] is not None:
-                    dataset_dict[self.cfg["in"]['edge']["name"]] = \
-                        self.preprocess_mask(mask, ds_type, "edge", True)
-                elif self.cfg["in"]['contour'] is not None:
-                    dataset_dict[self.cfg["in"]['contour']["name"]] = \
-                        self.preprocess_mask(mask, ds_type, "contour", True)
+                
+        # else:
+        #     if self.paths[ds_type]["PRIOR_ANN"]:
+        #         mask_base_path = tf.constant(self.paths[ds_type]['PRIOR_ANN'], dtype=tf.string)
+        #         mask_path = tf.strings.join([mask_base_path, sep_str, img_idx_str, end_str])
+        #         mask_input = tf.io.read_file(mask_path)
+        #         mask_input = tf.image.decode_png(mask_input, channels=3)
+        #         idx = self.ds_inf[ds_type]['info']['mask']['edge']
+        #         mask = mask_input[:, :, idx:idx + 1]
+        #         if self.cfg["in"]['edge'] is not None:
+        #             dataset_dict[self.cfg["in"]['edge']["name"]] = \
+        #                 self.preprocess_mask(mask, ds_type, "edge", True)
+        #         elif self.cfg["in"]['contour'] is not None:
+        #             dataset_dict[self.cfg["in"]['contour']["name"]] = \
+        #                 self.preprocess_mask(mask, ds_type, "contour", True)
                 
         return dataset_dict
     
@@ -180,7 +182,7 @@ class DataProcessing:
             mask = tf.cast(mask, tf.int32)
             mask = tf.where(mask > 0, 1, 0)
             mask = tf.cast(mask, tf.uint8)
-            self.num_classes[cfg_first_key][mask_type] = 1
+            self.num_classes[cfg_first_key][mask_type] = 1 + (mask_type == "segmentation")
         
         # category
         elif cfg_dataset["mask_encoding"] == 1:
@@ -190,21 +192,19 @@ class DataProcessing:
                 mask = tf.where(mask == int(inst), cat, mask)
             mask = tf.cast(mask, tf.uint8)
             
-            self.num_classes[cfg_first_key][mask_type] = len(self.ds_inf[ds_type]["cat2obj"])
-            
-            mask = reshape_mask(mask, self.num_classes[cfg_first_key][mask_type])
-        
+            self.num_classes[cfg_first_key][mask_type] = len(self.ds_inf[ds_type]["cat2obj"]) + (mask_type == "segmentation")
         else:
-            self.num_classes[cfg_first_key][mask_type] = len(self.ds_inf[ds_type]["obj2cat"])
-            mask = reshape_mask(mask, self.num_classes[cfg_first_key][mask_type])
-        
+            self.num_classes[cfg_first_key][mask_type] = len(self.ds_inf[ds_type]["obj2cat"]) + (mask_type == "segmentation")
+
         # reshape:
         shape = tf.shape(mask)
         current_shape = (shape[0], shape[1])
         
         if mask_type == "segmentation":
             mask = tf.image.resize(mask, cfg_dataset["shape"], method="nearest")
+            mask = reshape_mask_segmentation(mask, self.num_classes[cfg_first_key][mask_type])
         else:
+            mask = reshape_mask(mask, self.num_classes[cfg_first_key][mask_type])
             mask = self.resize_label_map(mask, current_shape, self.num_classes[cfg_first_key][mask_type],
                                          cfg_dataset["shape"])
         return tf.cast(mask, tf.float32)
@@ -320,3 +320,13 @@ def reshape_mask(mask, num_classes):
     mask = tf.cast(class_range_reshape == mask, dtype=tf.uint8)
     
     return mask
+
+
+def reshape_mask_segmentation(mask, num_classes):
+    mask = tf.cast(mask, tf.int32)
+    class_range = tf.range(0, num_classes, dtype=tf.int32)
+    class_range_reshape = tf.reshape(class_range, [1, 1, num_classes])
+    mask = tf.cast(class_range_reshape == mask, dtype=tf.uint8)
+    
+    return mask
+

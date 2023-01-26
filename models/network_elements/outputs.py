@@ -19,35 +19,37 @@ def viot_fusion_module(dec_edge, side_1, side_2, num_classes, num_filters_per_cl
     return tf.keras.layers.Activation(activation='sigmoid', name=output_name)(output)
 
 
-def viot_fusion_module_prior(dec_1, side_1, num_classes, num_filters_per_class, output_name="out_edge"):
-    # Note: Avoided indexing (memory consumption, avoided BN as values should start being meaningful as what they really are)
+def viot_fusion_module_prior(pyramid_module_input, side_feature_input, num_classes, num_filters_per_class, output_shape,
+                             output_name="out_edge"):
     num_filters = num_filters_per_class * num_classes
-    side = tf.keras.layers.Concatenate()([side_1, dec_1])
-    side = utils.convolution_block(side, kernel_size=1, num_filters=3 * num_filters)
-    side = utils.convolution_block(side, kernel_size=1, num_filters=num_filters)
-    side = utils.convolution_block(side, kernel_size=3, num_filters=num_filters)
-    side = utils.convolution_block(side, kernel_size=3, num_filters=num_filters)
-    output = utils.convolution_block(side, BN=False, RELU=False, num_filters=1, kernel_size=1)
-    return tf.keras.layers.Activation(activation='sigmoid', name=output_name)(output)
+    fusion_module_1 = tf.keras.layers.Concatenate()([pyramid_module_input, side_feature_input])
+    fusion_module_2 = utils.convolution_block(fusion_module_1, kernel_size=1, num_filters=2 * num_filters, BN=False,
+                                              RELU=False)
+    fusion_module_3 = utils.convolution_block(fusion_module_2, kernel_size=1, num_filters=2 * num_filters)
+    fusion_module_4 = utils.convolution_block(fusion_module_3, kernel_size=1, num_filters=num_filters, separable=True)
+    fusion_module_5 = tf.image.resize(fusion_module_4, output_shape, method="bilinear")
+    fusion_module_6 = utils.convolution_block(fusion_module_5, kernel_size=3, num_filters=num_filters, separable=True)
+    fusion_module_7 = utils.convolution_block(fusion_module_6, BN=False, RELU=False, num_filters=num_classes,
+                                              kernel_size=3)
+    return tf.keras.layers.Activation(activation='sigmoid', name=output_name)(fusion_module_7)
 
 
-def viot_fusion_module_prior_segmentation(dec_seg, dec_edge, side_seg, side_edge, num_classes, num_filters_per_class):
-    # Note: Avoided indexing (memory consumption, avoided BN as values should start being meaningful as what they really are)
+def viot_fusion_module_prior_segmentation(pyramid_module_input, side_feature_input, num_classes, num_filters_per_class,
+                                          output_shape,
+                                          output_name="out_edge"):
     num_filters = num_filters_per_class * num_classes
-    side_edge = tf.keras.layers.Concatenate()([side_edge, dec_edge])
-    side_edge = utils.convolution_block(side_edge, kernel_size=1, num_filters=12)
-    side_edge = utils.convolution_block(side_edge, kernel_size=3, num_filters=6, separable=True, BN=False)
-    output_edge = utils.convolution_block(side_edge, kernel_size=3, num_filters=1, separable=True, BN=False, RELU=False)
-    output_edge = tf.keras.layers.Activation(activation='sigmoid', name="out_edge")(output_edge)
-    
-    side_seg = tf.keras.layers.Concatenate()([side_seg, dec_seg])
-    side_seg = utils.convolution_block(side_seg, kernel_size=3, num_filters=20, separable=True)
-    side_seg = utils.convolution_block(side_seg, kernel_size=3, num_filters=20, separable=True)
-    output_seg = utils.convolution_block(side_seg, kernel_size=1, num_filters=5, BN=False, RELU=False)
-    output_seg = tf.keras.layers.Activation(activation='sigmoid', name="out_segmentation")(output_seg)
-    return output_edge, output_seg
+    fusion_module_1 = tf.keras.layers.Concatenate()([pyramid_module_input, side_feature_input])
+    fusion_module_2 = utils.convolution_block(fusion_module_1, kernel_size=1, num_filters=2 * num_filters, BN=False,
+                                              RELU=False)
+    fusion_module_3 = utils.convolution_block(fusion_module_2, kernel_size=3, num_filters=2 * num_filters)
+    fusion_module_4 = utils.convolution_block(fusion_module_3, kernel_size=3, num_filters=num_filters, separable=True)
+    fusion_module_5 = tf.image.resize(fusion_module_4, output_shape, method="bilinear")
+    fusion_module_6 = utils.convolution_block(fusion_module_5, kernel_size=3, num_filters=num_filters, separable=True)
+    fusion_module_7 = tf.keras.layers.Conv2D(kernel_size=3, filters=num_classes, name=output_name, padding="SAME")(fusion_module_6)
+    return fusion_module_7
 
 
+# Elements from Paper
 def lite_edge_output(decoder_output, sides, num_classes, output_name="out_edge", output_shape=(320, 180)):
     out = []
     for i in range(num_classes):
@@ -66,32 +68,6 @@ def lite_edge_output(decoder_output, sides, num_classes, output_name="out_edge",
         output = tf.keras.layers.Concatenate()(out)
     output = tf.image.resize(output, output_shape)
     return tf.keras.layers.Activation(activation='sigmoid', name=output_name)(output)
-
-
-def shared_concatenation_and_classification_old(decoder_output, side_outputs, num_classes, num_filters_per_class,
-                                                name):
-    num_filters = num_filters_per_class * num_classes
-    sides = tf.keras.layers.Concatenate(axis=-1)(side_outputs)
-    sides = utils.convolution_block(sides, num_filters=3, kernel_size=1, name="sides_concatenation")
-    out = []
-    for i in range(num_classes):
-        idx_mult = int(decoder_output.shape[-1] / num_classes)
-        concatenated_layers_1 = tf.keras.layers.Concatenate(axis=-1)(
-            [decoder_output[:, :, :, idx_mult * i:idx_mult * (i + 1)], sides])
-        x = utils.convolution_block(concatenated_layers_1, num_filters=num_filters, kernel_size=1,
-                                    name='out_concat_1_{}'.format(i))
-        x = utils.convolution_block(x, num_filters=idx_mult, kernel_size=3, separable=True,
-                                    name='out_concat_2_{}'.format(i))
-        
-        if num_classes == 1:
-            convolved_layers = tf.keras.layers.Conv2D(filters=1, kernel_size=1, name=name)(x)
-            return convolved_layers
-        else:
-            convolved_layers = tf.keras.layers.Conv2D(filters=1, kernel_size=1)(x)
-            out.append(convolved_layers)
-    
-    output = tf.keras.layers.Concatenate(axis=-1, name='output_concatenation')(out)
-    return tf.keras.layers.Activation(activation='sigmoid', name=name)(output)
 
 
 def FENet(decoder_output, sides, num_classes, output_shape=(320, 160)):

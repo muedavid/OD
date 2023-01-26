@@ -7,10 +7,6 @@ SEED: null
 PARSER: false
 CONVERT_TO_TFLITE: true
 
-# Model type: defines the task which is solved by the model ['edge detector']
-MODEL:
-  TYPE: 'edge detector'
-
 BACKBONE:
   NAME: MobileNetV2
   ALPHA: 0.35

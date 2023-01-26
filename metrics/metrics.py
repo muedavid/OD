@@ -11,46 +11,52 @@ def compute_f1_precision_recall(true_positive, false_positive, false_negative):
     return f1, precision, recall
 
 
+# @tf.function
+# def number_true_false_positive_negative(y_true, y_prediction, padding, pixels_at_edge_without_loss):
+#     mask = mask_pixels_for_computation(y_true, padding, 0)
+#     mask = tf.cast(mask, tf.int32)
+#
+#     number_true_positive = tf.reduce_sum(tf.cast((y_true & y_prediction), tf.int32) * mask, axis=(0, 1, 2))
+#     number_false_positive = tf.reduce_sum(y_prediction * mask, axis=(0, 1, 2)) - number_true_positive
+#     number_true_negative = tf.reduce_sum(tf.cast(((1 - y_prediction) & (1 - y_true)), tf.int32) * mask, axis=(0, 1, 2))
+#     number_false_negative = tf.reduce_sum(tf.cast((1 - y_prediction) * mask, tf.int32),
+#                                           axis=(0, 1, 2)) - number_true_negative
+#
+#     return number_true_positive, number_false_positive, number_true_negative, number_false_negative
+
+
 @tf.function
-def number_true_false_positive_negative(y_true, y_prediction):
-    mask = mask_pixels_for_computation(y_true)
+def number_true_false_positive_negative(y_true, y_prediction, threshold_edge_width=0, padding=0,
+                                        pixels_at_edge_without_loss=0):
+    mask = mask_pixels_for_computation(y_true, padding, pixels_at_edge_without_loss)
     mask = tf.cast(mask, tf.int32)
     
-    number_true_positive = tf.reduce_sum(tf.cast((y_true & y_prediction), tf.int32) * mask, axis=(0, 1, 2))
-    number_false_positive = tf.reduce_sum(y_prediction * mask, axis=(0, 1, 2)) - number_true_positive
-    number_true_negative = tf.reduce_sum(tf.cast(((1 - y_prediction) & (1 - y_true)), tf.int32) * mask, axis=(0, 1, 2))
-    number_false_negative = tf.reduce_sum(tf.cast((1 - y_prediction) * mask, tf.int32),
-                                          axis=(0, 1, 2)) - number_true_negative
-    
-    return number_true_positive, number_false_positive, number_true_negative, number_false_negative
-
-
-@tf.function
-def number_true_false_positive_negative_old(y_true, y_prediction, threshold_edge_width):
     # widen the edges for the calculation of the number of true positive
-    kernel = tf.ones([1 + 2 * threshold_edge_width, 1 + 2 * threshold_edge_width, y_prediction.shape[-1], 1],
-                     tf.float32)
     y_prediction_widen = tf.cast(y_prediction, tf.float32)
-    y_prediction_widen = tf.nn.depthwise_conv2d(y_prediction_widen, kernel, strides=[1, 1, 1, 1], padding="SAME")
-    y_prediction_widen = tf.cast(tf.clip_by_value(y_prediction_widen, 0, 1), tf.int32)
+    filter_dilation = tf.zeros(shape=(1 + 2 * threshold_edge_width, 1 + 2 * threshold_edge_width, y_prediction_widen.shape[-1]))
+    y_prediction_widen = tf.nn.dilation2d(y_prediction_widen, filter_dilation, strides=[1, 1, 1, 1], padding="SAME",
+                                          dilations=[1, 1, 1, 1], data_format="NHWC")
+    y_prediction_widen = tf.cast(y_prediction_widen, tf.int32)
     
-    number_true_positive_1 = tf.reduce_sum(tf.cast((y_true & y_prediction_widen), tf.int32), axis=(0, 1, 2))
-    y_true_widen = tf.cast(y_true, tf.float32)
-    y_true_widen = tf.nn.depthwise_conv2d(y_true_widen, kernel, strides=[1, 1, 1, 1], padding="SAME")
-    y_true_widen = tf.cast(tf.clip_by_value(y_true_widen, 0, 1), tf.int32)
-    number_true_positive_2 = tf.reduce_sum(tf.cast((y_true_widen & y_prediction), tf.int32), axis=(0, 1, 2))
-    number_true_positive = tf.math.minimum(number_true_positive_1, number_true_positive_2)
-    number_false_positive = tf.reduce_sum(y_prediction, axis=(0, 1, 2)) - number_true_positive
+    number_true_positive = tf.reduce_sum(tf.cast((y_true & y_prediction_widen), tf.int32) * mask, axis=(0, 1, 2))
+    # number_true_positive_1 = tf.reduce_sum(tf.cast((y_true & y_prediction_widen), tf.int32), axis=(0, 1, 2))
+    # y_true_widen = tf.cast(y_true, tf.float32)
+    # y_true_widen = tf.nn.depthwise_conv2d(y_true_widen, kernel, strides=[1, 1, 1, 1], padding="SAME")
+    # y_true_widen = tf.cast(tf.clip_by_value(y_true_widen, 0, 1), tf.int32)
+    # number_true_positive_2 = tf.reduce_sum(tf.cast((y_true_widen & y_prediction), tf.int32), axis=(0, 1, 2))
+    # number_true_positive = tf.math.minimum(number_true_positive_1, number_true_positive_2)
+    number_false_positive = tf.reduce_sum(y_prediction * mask, axis=(0, 1, 2)) - number_true_positive
     
-    number_true_negative = tf.reduce_sum(tf.cast((1 - y_prediction) & (1 - y_true), tf.int32), axis=(0, 1, 2))
-    number_false_negative = tf.reduce_sum(tf.cast((1 - y_prediction), tf.int32), axis=(0, 1, 2)) - number_true_negative
+    number_true_negative = tf.reduce_sum(tf.cast((1 - y_prediction) & (1 - y_true) * mask, tf.int32), axis=(0, 1, 2))
+    number_false_negative = tf.reduce_sum(tf.cast((1 - y_prediction), tf.int32) * mask,
+                                          axis=(0, 1, 2)) - number_true_negative
     
     return number_true_positive, number_false_positive, number_true_negative, number_false_negative
 
 
 class BinaryAccuracyEdges(tf.keras.metrics.Metric):
     def __init__(self, num_classes, classes_individually=False, name="accuracy_edges",
-                 threshold_prediction=0.5, print_name="edges", **kwargs):
+                 threshold_prediction=0.5, print_name="edges", padding=0, pixels_at_edge_without_loss=0, **kwargs):
         super(BinaryAccuracyEdges, self).__init__(name=name, **kwargs)
         self.numberTruePredictedPixels = self.add_weight(name="numberTruePredictedPixels", initializer="zeros",
                                                          shape=(num_classes,))
@@ -60,6 +66,8 @@ class BinaryAccuracyEdges(tf.keras.metrics.Metric):
         self.num_classes = num_classes
         self.classes_individually = classes_individually
         self.print_name = print_name
+        self.padding = padding
+        self.pixels_at_edge_without_loss = pixels_at_edge_without_loss
     
     @tf.function
     def update_state(self, y_true, y_pred, sample_weight=None):
@@ -67,7 +75,7 @@ class BinaryAccuracyEdges(tf.keras.metrics.Metric):
         y_pred = tf.cast(y_pred > threshold_prediction, tf.int32)
         y_true = tf.cast(y_true, dtype=tf.int32)
         
-        mask = mask_pixels_for_computation(y_true)
+        mask = mask_pixels_for_computation(y_true, self.padding, self.pixels_at_edge_without_loss)
         mask = tf.cast(mask, tf.int32)
         
         number_true_predicted = tf.cast(tf.reduce_sum(tf.cast((y_true == y_pred), dtype=tf.int32) * mask,
@@ -98,19 +106,25 @@ class BinaryAccuracyEdges(tf.keras.metrics.Metric):
         base_config['threshold_prediction'] = self.thresholdPrediction
         base_config['num_classes'] = self.num_classes
         base_config['classes_individually'] = self.classes_individually
+        base_config['padding'] = self.padding
+        base_config['pixels_at_edge_without_loss'] = self.pixels_at_edge_without_loss
         return base_config
 
 
 class F1Edges(tf.keras.metrics.Metric):
     def __init__(self, num_classes, classes_individually=False, threshold_prediction=0.5,
-                 threshold_edge_width=0, print_name="edges", name="f1_edges", **kwargs):
+                 print_name="edges", padding=0, pixels_at_edge_without_loss=0, threshold_edge_width=0,
+                 name="f1_edges",
+                 **kwargs):
         super(F1Edges, self).__init__(name=name, **kwargs)
         
         self.thresholdPrediction = threshold_prediction
-        self.thresholdEdgeWidth = threshold_edge_width
         self.classes_individually = classes_individually
         self.num_classes = num_classes
         self.print_name = print_name
+        self.padding = padding
+        self.pixels_at_edge_without_loss = pixels_at_edge_without_loss
+        self.threshold_edge_width = threshold_edge_width
         
         self.numberTruePositive = self.add_weight(name="numberTruePositive", initializer="zeros", shape=(num_classes,))
         self.numberTrueNegative = self.add_weight(name="numberTrueNegative", initializer="zeros", shape=(num_classes,))
@@ -125,8 +139,10 @@ class F1Edges(tf.keras.metrics.Metric):
         y_pred = tf.cast(y_pred > threshold_prediction, tf.int32)
         y_true = tf.cast(y_true, dtype=tf.int32)
         
-        number_true_positive, number_false_positive, number_true_negative, number_false_negative = number_true_false_positive_negative(
-            y_true, y_pred)
+        number_true_positive, number_false_positive, number_true_negative, number_false_negative = \
+            number_true_false_positive_negative(y_true, y_pred, padding=self.padding,
+                                                threshold_edge_width=self.threshold_edge_width,
+                                                pixels_at_edge_without_loss=self.pixels_at_edge_without_loss)
         
         self.numberTruePositive.assign_add(tf.cast(number_true_positive, tf.float32))
         self.numberFalsePositive.assign_add(tf.cast(number_false_positive, tf.float32))
@@ -164,6 +180,8 @@ class F1Edges(tf.keras.metrics.Metric):
         base_config['num_classes'] = self.num_classes
         base_config['print_name'] = self.print_name
         base_config['threshold_prediction'] = self.thresholdPrediction
-        base_config['threshold_edge_width'] = self.thresholdEdgeWidth
         base_config['classes_individually'] = self.classes_individually
+        base_config['padding'] = self.padding
+        base_config['pixels_at_edge_without_loss'] = self.pixels_at_edge_without_loss
+        base_config['threshold_edge_width'] = self.threshold_edge_width
         return base_config

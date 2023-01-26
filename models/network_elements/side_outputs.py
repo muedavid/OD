@@ -13,31 +13,21 @@ def viot_side_feature(x1, output_dims, num_classes, num_filters_per_class, metho
     return x1
 
 
-def viot_side_feature_prior(x1, output_dims, num_classes, num_filters_per_class, method="bilinear"):
+def viot_side_feature_prior(x1, num_classes, num_filters_per_class, method="bilinear"):
     num_filters = num_filters_per_class * num_classes
-    x1 = utils.convolution_block(x1, kernel_size=3, num_filters=num_filters, separable=True)
+    x1 = utils.mobile_net_v2_inverted_residual(x1, depth_multiplier=6)
+    x1 = utils.convolution_block(x1, kernel_size=3, num_filters=2*num_filters, separable=True)
     
-    if x1.shape[1] != output_dims[0]:
-        x1 = tf.image.resize(x1, output_dims)
-        
     return x1
 
 
-def viot_side_feature_prior_segmentation(x1, x2, output_dims_edge, output_dims_segmentation, num_classes,
-                                         num_filters_per_class, method="bilinear"):
+def viot_side_feature_prior_segmentation(x1, num_classes, num_filters_per_class):
     num_filters = num_filters_per_class * num_classes
-    segmentation = utils.convolution_block(x1, kernel_size=3, num_filters=10, separable=True)
-    segmentation = utils.mobile_net_v2_inverted_residual(segmentation, depth_multiplier=4)
-    edge = utils.convolution_block(x2, kernel_size=3, num_filters=6, separable=True)
-    edge = utils.convolution_block(edge, kernel_size=1, num_filters=6)
+    x1 = utils.mobile_net_v2_inverted_residual(x1, depth_multiplier=6)
+    x1 = utils.convolution_block(x1, kernel_size=3, num_filters=2 * num_filters, separable=True)
+    x1 = utils.convolution_block(x1, kernel_size=3, num_filters=2 * num_filters, separable=True)
     
-    if edge.shape[1] != output_dims_edge[0]:
-        edge = tf.image.resize(edge, output_dims_edge)
-        edge = utils.convolution_block(edge, kernel_size=3, separable=True, num_filters=6, BN=False)
-    if segmentation.shape[1] != output_dims_segmentation[0]:
-        segmentation = tf.image.resize(segmentation, output_dims_segmentation)
-        segmentation = utils.convolution_block(segmentation, kernel_size=3, separable=True, num_filters=6)
-    return segmentation, edge
+    return x1
 
 
 def side_feature(x, output_dims, num_classes, num_filters_per_class, method="bilinear", name=None):

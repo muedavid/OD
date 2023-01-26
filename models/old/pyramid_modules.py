@@ -288,3 +288,42 @@ def concatenate_edge_and_image(image_layer, edge_layer, num_filters):
                                   name="pyramid_module_out_3")
     
     return out, pyramid_out, edge_layer_concat, image_layer_concat
+
+
+def viot_coarse_features_prior_segmentation(input_layer, input_edge, num_classes, num_filters_per_class,
+                                            output_shape_segmentation, output_shape_edge):
+    num_filters = num_classes * num_filters_per_class
+    
+    # prior_edge = tf.where(input_edge > 0.3, 1.0, -1.0)
+    edge = utils.convolution_block(input_edge, kernel_size=3, num_filters=5)
+    edge_segmentation = utils.convolution_block(input_edge, kernel_size=3, separable=True, num_filters=5)
+    edge_segmentation = utils.convolution_block(edge_segmentation, kernel_size=3, separable=True, num_filters=5)
+    
+    image_1 = utils.convolution_block(input_layer, kernel_size=3, num_filters=12, separable=True)
+    
+    image_edge = utils.convolution_block(image_1, kernel_size=3, num_filters=12, separable=True)
+    image_edge = utils.convolution_block(image_edge, kernel_size=3, num_filters=12)
+    image_1_avg = tf.keras.layers.AvgPool2D((5, 5), strides=1, padding="SAME")(image_edge)
+    image_1_min = tf.keras.layers.MaxPool2D((3, 3), strides=1, padding="SAME")(image_edge * (-1))
+    image_1_max = tf.keras.layers.MaxPool2D((3, 3), strides=1, padding="SAME")(image_edge)
+    
+    image_edge = tf.keras.layers.Concatenate()([edge, image_edge, image_1_avg, image_1_min, image_1_max])
+    image_edge = utils.convolution_block(image_edge, kernel_size=3, num_filters=24, separable=True)
+    image_edge = utils.convolution_block(image_edge, kernel_size=3, num_filters=12, separable=True)
+    image_edge = utils.convolution_block(image_edge, kernel_size=3, num_filters=12)
+    image_edge = utils.convolution_block(image_edge, kernel_size=1, num_filters=6)
+    
+    image_segmentation = tf.keras.layers.Concatenate()([image_1, edge_segmentation])
+    image_segmentation = utils.convolution_block(image_segmentation, kernel_size=3, num_filters=15)
+    image_segmentation = utils.convolution_block(image_segmentation, kernel_size=3, num_filters=15, separable=True)
+    aw = utils.convolution_block(image_segmentation, kernel_size=3, BN=False, num_filters=15)
+    aw = utils.convolution_block(aw, kernel_size=1, RELU=False, BN=False, num_filters=15)
+    aw = tf.keras.layers.Activation(activation="hard_sigmoid")(aw)
+    image_segmentation = image_segmentation * aw
+    image_segmentation = utils.convolution_block(image_segmentation, kernel_size=5, num_filters=10, separable=True)
+    image_segmentation = utils.convolution_block(image_segmentation, kernel_size=3, num_filters=10)
+    
+    edge = tf.image.resize(image_edge, output_shape_edge, method="bilinear")
+    
+    segmentation = tf.image.resize(image_segmentation, output_shape_segmentation, method="bilinear")
+    return edge, segmentation, image_1

@@ -41,7 +41,7 @@ TEST:
   NAME: Test
   MAX_IMG: 300
 
-  BATCH_SIZE: 5
+  BATCH_SIZE: 3
   # BATCH_SIZE: 1
   CACHE: true
   SHUFFLE: false
@@ -54,7 +54,7 @@ TRAIN:
   # MAX_IMG: 1500
   MAX_IMG: 1500
 
-  BATCH_SIZE: 5
+  BATCH_SIZE: 3
   # BATCH_SIZE: 1
   CACHE: true
   SHUFFLE: true
@@ -73,9 +73,9 @@ TRAIN:
     value: 0.3
 
 IMG_ONLY:
-  PATH: 'real'
+  PATH: 'real_world'
 
-  MAX_IMG: 10
+  MAX_IMG: 41
 
   BATCH_SIZE: 5
 

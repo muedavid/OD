@@ -1,10 +1,41 @@
-import traitlets.config
 from tensorflow import keras
-import tensorflow as tf
-from numpy import array, log2
+from numpy import array
 from models.network_elements import utils
 
 
+def backbone_edge_detection_without_prior(input_shape=(640, 360, 3), num_filters=5):
+    input_model = keras.Input(shape=input_shape, name="in_img")
+    
+    conv_1 = utils.convolution_block(input_model, num_filters=3*num_filters, kernel_size=3, strides=2, RELU=False)
+    conv_2 = utils.mobile_net_v2_inverted_residual(conv_1, depth_multiplier=6)
+    conv_3 = utils.mobile_net_v2_inverted_residual(conv_2, depth_multiplier=6, strides=2)
+    conv_4 = utils.mobile_net_v2_inverted_residual(conv_3, depth_multiplier=6)
+    
+    return input_model, conv_2, conv_4
+
+
+def backbone_edge_detection_with_prior(input_shape=(640, 360, 3), num_filters=5):
+    input_model = keras.Input(shape=input_shape, name="in_img")
+    
+    conv_1 = utils.convolution_block(input_model, num_filters=3*num_filters, kernel_size=3, strides=2, RELU=False)
+    conv_2 = utils.mobile_net_v2_inverted_residual(conv_1, depth_multiplier=4)
+    # aw = tf.keras.layers.AveragePooling2D((3, 3), strides=3, padding="SAME")(conv_1)
+    # aw = utils.convolution_block(aw, kernel_size=3, BN=False, RELU=True, num_filters=8, separable=True)
+    # aw = tf.keras.layers.LayerNormalization()(aw)
+    # aw = tf.keras.layers.Activation(activation="hard_sigmoid")(aw)
+    # aw = tf.image.resize(aw, (conv_1.shape[1], conv_1.shape[2]))
+    # conv_1 = conv_1 * aw
+    conv_3 = utils.mobile_net_v2_inverted_residual(conv_2, depth_multiplier=4) + conv_2
+    # conv_3 = utils.convolution_block(conv_2, kernel_size=3, num_filters=3*num_filters, separable=True)
+    
+    # conv_2 = utils.convolution_block(conv_1, depthwise=True, kernel_size=3, strides=2, BN=False, RELU=False)
+    
+    conv_4 = utils.mobile_net_v2_inverted_residual(conv_3, depth_multiplier=4, strides=2)
+    
+    return input_model, conv_3, conv_4
+
+
+# Paper based backbones
 def get_backbone(name="MobileNetV2", weights="imagenet", input_shape=(640, 360, 3), alpha=1,
                  output_layer=None, trainable_idx=None, input_name='in_img'):
     if output_layer is None:
@@ -89,115 +120,3 @@ def residual_block_resnet(x, num_input_filter, name='residual_block', filter_mul
                                 name=name + '_3')
     
     return keras.layers.Add(name=name + '_out')([x, residual])
-
-
-def get_mobile_net(input_shape=(640, 360, 3), num_filters=8):
-    input_model = keras.Input(shape=input_shape, name="in_img")
-    
-    conv_1 = utils.convolution_block(input_model, num_filters=8, kernel_size=3)
-    conv_1 = utils.convolution_block(conv_1, num_filters=8, kernel_size=3, separable=True)
-    conv_2 = utils.mobile_net_v2_inverted_residual(conv_1, strides=2, depth_multiplier=2)
-    conv_2 = utils.mobile_net_v2_inverted_residual(conv_2, depth_multiplier=6)
-    conv_3 = utils.mobile_net_v2_inverted_residual(conv_2, depth_multiplier=2, strides=2)
-    
-    return input_model, conv_1, conv_2, conv_3
-
-
-def get_mobile_net_prior(input_shape=(640, 360, 3), num_filters=8):
-    input_model = keras.Input(shape=input_shape, name="in_img")
-    
-    conv_1 = utils.convolution_block(input_model, num_filters=8, kernel_size=3, strides=2, RELU=False)
-    conv_1 = utils.mobile_net_v2_inverted_residual(conv_1, depth_multiplier=6)
-    aw = tf.keras.layers.AveragePooling2D((3, 3), strides=3, padding="SAME")(conv_1)
-    aw = utils.convolution_block(aw, kernel_size=3, BN=False, RELU=True, num_filters=8, separable=True)
-    aw = tf.keras.layers.LayerNormalization()(aw)
-    aw = tf.keras.layers.Activation(activation="hard_sigmoid")(aw)
-    aw = tf.image.resize(aw, (conv_1.shape[1], conv_1.shape[2]))
-    conv_1 = conv_1 * aw
-    conv_2 = utils.mobile_net_v2_inverted_residual(conv_1, depth_multiplier=2)
-    
-    # conv_2 = utils.convolution_block(conv_1, depthwise=True, kernel_size=3, strides=2, BN=False, RELU=False)
-    
-    conv_3 = utils.convolution_block(conv_2, kernel_size=3, strides=2, num_filters=8, separable=True)
-    
-    return input_model, conv_1, conv_2, conv_3
-
-
-def get_mobile_net_shifted(input_shape, edge_input, num_filters=8):
-    input_model = keras.Input(shape=input_shape, name="in_img")
-    
-    edge_1 = utils.convolution_block(edge_input, kernel_size=3, num_filters=4)
-    edge_1 = utils.convolution_block(edge_1, kernel_size=3, num_filters=4)
-    conv_1 = utils.convolution_block(input_model, num_filters=8, kernel_size=3)
-    conv_1 = utils.convolution_block(conv_1, depthwise=True)
-    conv_1 = tf.keras.layers.Concatenate()([edge_1, conv_1])
-    conv_1 = utils.convolution_block(conv_1, num_filters=8, kernel_size=1)
-    conv_2 = utils.mobile_net_v2_inverted_residual(conv_1, strides=2, depth_multiplier=2)
-    conv_2 = utils.mobile_net_v2_inverted_residual(conv_2, strides=1, depth_multiplier=6)
-    conv_2 = utils.mobile_net_v2_inverted_residual(conv_2, depth_multiplier=6)
-    conv_3 = utils.mobile_net_v2_inverted_residual(conv_2, depth_multiplier=2, strides=2)
-    
-    return input_model, conv_1, conv_2, conv_3
-
-
-def get_mobile_net_edge(input_img, input_edge):
-    dim = 11
-    horizontal = tf.constant([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1])
-    vertical = tf.constant([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1])
-    horizontal = tf.cast(tf.reshape(horizontal, [dim, 1, 1, 1]), tf.float32)
-    vertical = tf.cast(tf.reshape(vertical, [1, dim, 1, 1]), tf.float32)
-    
-    edge_1 = tf.nn.conv2d(input_edge, horizontal, dilations=1, strides=[1, 1, 1, 1], padding="SAME")
-    edge_1 = tf.nn.conv2d(edge_1, horizontal, dilations=1, strides=[1, 1, 1, 1], padding="SAME")
-    edge_1 = tf.nn.conv2d(edge_1, vertical, dilations=1, strides=[1, 1, 1, 1], padding="SAME")
-    edge_1 = tf.nn.conv2d(edge_1, vertical, dilations=1, strides=[1, 1, 1, 1], padding="SAME") + input_edge
-    edge_1_x = tf.where(edge_1 >= 1.0, 1.0, -1.0)
-    
-    conv_1_edge = utils.convolution_block(input_img, num_filters=4, kernel_size=3, RELU=False)
-    conv_1_edge = tf.keras.layers.Concatenate()([conv_1_edge, edge_1_x])
-    conv_2_edge = utils.convolution_block(conv_1_edge, num_filters=4, kernel_size=3, RELU=False)
-    conv_2_edge = utils.convolution_block(conv_2_edge, depthwise=True, kernel_size=3, strides=2)
-    conv_2_edge = utils.convolution_block(conv_2_edge, num_filters=4, kernel_size=3, separable=True)
-    conv_2_edge = tf.keras.layers.MaxPool2D((2, 2), strides=2, padding="SAME")(conv_2_edge)
-    conv_2_edge = utils.convolution_block(conv_2_edge, num_filters=8, kernel_size=3, separable=True)
-    conv_2_edge = utils.convolution_block(conv_2_edge, num_filters=8, kernel_size=3, separable=True)
-    conv_2_edge = utils.convolution_block(conv_2_edge, num_filters=1, kernel_size=3, separable=True)
-    conv_2_edge = tf.image.resize(conv_2_edge, (input_img.shape[1], input_img.shape[2]))
-    conv_2_edge = tf.keras.layers.Activation("hard_sigmoid")(conv_2_edge)
-    
-    conv_1 = utils.convolution_block(input_img, num_filters=8, kernel_size=3, RELU=False)
-    conv_1 = utils.convolution_block(conv_1, num_filters=8, kernel_size=3, separable=True)
-    conv_2 = tf.keras.layers.Concatenate()([conv_1, conv_2_edge])
-    conv_2 = utils.convolution_block(conv_2, num_filters=12, kernel_size=3, separable=True)
-    conv_2 = utils.convolution_block(conv_2, num_filters=12, kernel_size=3, separable=True)
-    conv_2 = utils.convolution_block(conv_2, num_filters=6, kernel_size=3, separable=True)
-    
-    conv_2 = tf.keras.layers.Conv2D(filters=1, kernel_size=1)(conv_2)
-    
-    # filters = tf.constant(
-    #     [[[[1, 1.2, 1, 0]], [[2, 0.9, 0, -0.9]], [[1, 0, -1, -1.2]]],
-    #      [[[0, 0.9, 2, 0.9]], [[0, 0, 0, 0]], [[0, -0.9, -2, -0.9]]],
-    #      [[[-1, 0, 1, 1.2]], [[-2, -0.9, 0, 0.9]], [[-1, -1.2, -1, 0]]]],
-    #     dtype=tf.float32)
-    
-    # conv_2 = tf.nn.conv2d(conv_2, filters, strides=[1, 1, 1, 1], padding="SAME")
-    
-    # filters = tf.constant(
-    #     [[[[0]], [[0]], [[0]], [[1]], [[0]], [[0]], [[0]]],
-    #      [[[0]], [[0]], [[0]], [[0]], [[0]], [[0]], [[0]]],
-    #      [[[0]], [[0]], [[0]], [[0]], [[0]], [[0]], [[0]]],
-    #      [[[1]], [[0]], [[0]], [[1]], [[0]], [[0]], [[1]]],
-    #      [[[0]], [[0]], [[0]], [[0]], [[0]], [[0]], [[0]]],
-    #      [[[0]], [[0]], [[0]], [[0]], [[0]], [[0]], [[0]]],
-    #      [[[0]], [[0]], [[0]], [[1]], [[0]], [[0]], [[0]]]],
-    #     dtype=tf.float32)
-    
-    # filters = tf.constant(
-    #     [[[[0, 0, 0, 1]], [[0, 0, 0, 0]], [[0, 0, 1, 0]], [[0, 0, 0, 0]], [[0, 1, 0, 0]]],
-    #      [[[0, 0, 0, 0]], [[0, 0, 0, 1]], [[0, 0, 1, 0]], [[0, 1, 0, 0]], [[0, 0, 0, 0]]],
-    #      [[[1, 0, 0, 0]], [[1, 0, 0, 0]], [[0, 0, 0, 0]], [[1, 0, 0, 0]], [[1, 0, 0, 0]]],
-    #      [[[0, 0, 0, 0]], [[0, 1, 0, 0]], [[0, 0, 1, 0]], [[0, 0, 0, 1]], [[0, 0, 0, 0]]],
-    #      [[[0, 1, 0, 0]], [[0, 0, 0, 0]], [[0, 0, 1, 0]], [[0, 0, 0, 0]], [[0, 0, 0, 1]]]],
-    #     dtype=tf.float32)
-    
-    return tf.keras.layers.Activation(activation='sigmoid', name="out_edge")(conv_2), edge_1_x, conv_2_edge
