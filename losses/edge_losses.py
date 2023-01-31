@@ -20,7 +20,7 @@ def get_edge_weighting_matrix(y_true, pixels_at_edge_without_loss, edge_loss_wei
     y_low_weight = y_widen - y_true
     y_non_edge_weight = 1.0 - y_widen_max
     weight = y_edge_weight_weight * edge_loss_weighting + y_non_edge_weight * (
-            1.0 - edge_loss_weighting) + y_low_weight * (1.0 - edge_loss_weighting) / 1.0
+            1.0 - edge_loss_weighting) + y_low_weight * (1.0 - edge_loss_weighting) / 3.0
     return weight
 
 
@@ -126,7 +126,7 @@ class FocalLossEdges(tf.keras.losses.Loss):
         
         power = tf.cast(self.power.value(), dtype=dtype)
         
-        min_steps_to_check_derivative = 2000
+        min_steps_to_check_derivative = 4000
         self.iterations.assign_add(1)
         
         if self.decay and self.iterations.value() % min_steps_to_check_derivative == 0 and self.power.value() > 0.0:

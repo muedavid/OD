@@ -36,7 +36,7 @@ TEST:
   SHUFFLE: false
   PREFETCH: true
 
-  DATA_AUG: null
+  DATA_AUGMENTATION: null
 
 TRAIN:
   NAME: Train
@@ -47,20 +47,18 @@ TRAIN:
   SHUFFLE: true
   PREFETCH: true
 
-  DATA_AUG: null
-#    blur: false
-#    brightness: 0.0
-#    contrast_factor: 0.75
-#    gaussian_value: 0.75
-#    hue: 0.1
-#    noise_std: 0
-#    saturation: 0.75
-#    sigma: 1.0
-#    strength_spot: 0.3
-#    value: 0.3
+  DATA_AUGMENTATION:
+    brightness: 0.2
+    contrast_factor: 0.8
+    hue: 0.02
+    saturation: 0.8
+    apply_random_flip: true
+    noise_std: 0
+    apply_spotlight: false
+    spotlight_strength: 0.3 #max additional value and brightness
 
-IMG_ONLY:
-  PATH: 'real_world'
+REAL_WORLD:
+  PATH: /home/david/SemesterProject/Datasets/real_world
 
   MAX_IMG: 40
 
@@ -70,4 +68,4 @@ IMG_ONLY:
   SHUFFLE: false
   PREFETCH: true
 
-  DATA_AUG: null
+  DATA_AUGMENTATION: null

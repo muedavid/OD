@@ -9,7 +9,7 @@ def backbone_edge_detection_without_prior(input_shape=(640, 360, 3), num_filters
     conv_1 = utils.convolution_block(input_model, num_filters=3*num_filters, kernel_size=3, strides=2, RELU=False)
     conv_2 = utils.mobile_net_v2_inverted_residual(conv_1, depth_multiplier=6)
     conv_3 = utils.mobile_net_v2_inverted_residual(conv_2, depth_multiplier=6, strides=2)
-    conv_4 = utils.mobile_net_v2_inverted_residual(conv_3, depth_multiplier=6)
+    conv_4 = utils.mobile_net_v2_inverted_residual(conv_3, depth_multiplier=6) + conv_3
     
     return input_model, conv_2, conv_4
 

@@ -37,7 +37,7 @@ TEST:
   SHUFFLE: false
   PREFETCH: true
 
-  DATA_AUG: null
+  DATA_AUGMENTATION: null
 
 TRAIN:
   NAME: Train
@@ -50,7 +50,7 @@ TRAIN:
   SHUFFLE: true
   PREFETCH: true
 
-  DATA_AUG: null
+  DATA_AUGMENTATION: null
 #    blur: false
 #    brightness: 0.2
 #    contrast_factor: 0.7
@@ -62,4 +62,4 @@ TRAIN:
 #    strength_spot: 0.1
 #    value: 0.1
 
-IMG_ONLY: null
+REAL_WORLD: null

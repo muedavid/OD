@@ -1,0 +1,14 @@
+{
+  "info": {
+    "description": "Dataset Json File.",
+    "date_created": "xxx",
+    "num_frames": 1,
+    "mask": {
+      "edge": 0,
+    }
+  },
+  "paths": {
+    "IMG": "images",
+    "ANN": "annotation",
+}
+

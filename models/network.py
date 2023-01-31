@@ -13,7 +13,7 @@ class NN:
     def get_model(self):
         if self.cfg['NAME'] == 'edge_detection_without_prior':
             model = self.edge_detection_without_prior()
-        elif self.cfg['NAME'] == 'edge_detection_with_prior_p':
+        elif self.cfg['NAME'] == 'edge_detection_with_prior':
             model = self.edge_detection_with_prior()
         elif self.cfg['NAME'] == 'segmentation':
             model = self.segmentation()
@@ -37,29 +37,28 @@ class NN:
         else:
             num_filter_per_class = 2
         
-        inp, out_1, out_2, out_3 = backbones.get_mobile_net(self.input_shape_img,
-                                                            num_filters=num_filter_per_class *
-                                                                        self.output_data_cfg["edge"]["num_classes"])
+        input_image, backbone_output_1, backbone_output_2 = backbones.backbone_edge_detection_without_prior(
+            self.input_shape_img, num_filters=num_filter_per_class * self.output_data_cfg["edge"]["num_classes"])
         
-        p1 = pyramid_modules.viot_coarse_features_no_prior(out_3,
-                                                           num_classes=self.output_data_cfg["edge"]["num_classes"],
-                                                           num_filters_per_class=num_filter_per_class,
-                                                           output_shape=self.output_data_cfg["edge"]["shape"])
+        side_output = side_outputs.viot_side_feature(backbone_output_1,
+                                                     output_dims=self.output_data_cfg["edge"]["shape"],
+                                                     num_classes=self.output_data_cfg["edge"]["num_classes"],
+                                                     num_filters_per_class=num_filter_per_class)
         
-        side_1 = side_outputs.viot_side_feature(out_1,
-                                                output_dims=self.output_data_cfg["edge"]["shape"],
-                                                num_classes=self.output_data_cfg["edge"]["num_classes"],
-                                                num_filters_per_class=num_filter_per_class)
-        side_2 = side_outputs.viot_side_feature(out_2,
-                                                output_dims=self.output_data_cfg["edge"]["shape"],
-                                                num_classes=self.output_data_cfg["edge"]["num_classes"],
-                                                num_filters_per_class=num_filter_per_class)
+        pyramid_module_output = pyramid_modules.viot_coarse_features_no_prior(
+            backbone_output_2,
+            num_classes=self.output_data_cfg["edge"]["num_classes"],
+            num_filters_per_class=num_filter_per_class,
+            output_shape=(side_output.shape[1], side_output.shape[2]))
         
-        output = outputs.viot_fusion_module(p1, side_1, side_2, num_classes=self.output_data_cfg["edge"]["num_classes"],
+        output = outputs.viot_fusion_module(pyramid_module_output, side_output,
+                                            num_classes=self.output_data_cfg["edge"]["num_classes"],
                                             num_filters_per_class=num_filter_per_class,
+                                            output_shape=self.output_data_cfg["edge"]["shape"],
                                             output_name="out_edge")
         
-        model = keras.Model(inputs=inp, outputs=[output, p1, side_1])
+        model = keras.Model(inputs=input_image,
+                            outputs=[output, backbone_output_1, backbone_output_1, pyramid_module_output, side_output])
         
         return model
     
@@ -91,11 +90,11 @@ class NN:
                                                        num_filters_per_class=num_filter_per_class,
                                                        output_shape=(side_output.shape[1], side_output.shape[2]))
         
-        output = outputs.viot_fusion_module_prior(pyramid_module_output, side_output,
-                                                  num_classes=self.output_data_cfg["edge"]["num_classes"],
-                                                  num_filters_per_class=num_filter_per_class,
-                                                  output_shape=self.output_data_cfg["edge"]["shape"],
-                                                  output_name="out_edge")
+        output = outputs.viot_fusion_module(pyramid_module_output, side_output,
+                                            num_classes=self.output_data_cfg["edge"]["num_classes"],
+                                            num_filters_per_class=num_filter_per_class,
+                                            output_shape=self.output_data_cfg["edge"]["shape"],
+                                            output_name="out_edge")
         
         model = keras.Model(inputs=[input_image, input_edge],
                             outputs=[output, backbone_output_1, backbone_output_1, pyramid_module_output, side_output])

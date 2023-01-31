@@ -13,7 +13,7 @@ import utils.tools as tools
 class DsKey:
     train = "TRAIN"
     test = "TEST"
-    img_only = "IMG_ONLY"
+    real_world = "REAL_WORLD"
 
 
 class DataProcessing:
@@ -31,18 +31,21 @@ class DataProcessing:
     input_data_cfg = dict()
     output_data_cfg = dict()
     
-    def __init__(self, config_path):
+    def __init__(self, config_path: str):
         self.cfg = tools.config_loader(osp.join(config_path, 'dataset.yaml'))
         self.input_output_keys()
         self.rng = tf.random.Generator.from_seed(123, alg='philox')
     
-    def path_definitions(self):
+    def load_dataset_information(self):
+        """
+        Loads the dataset.json file for each dataset type (Train, Test, IMG Only)
+        """
         paths = dict()
         for key in ["TRAIN", "TEST"]:
             if self.cfg[key] is not None:
                 paths[key] = osp.join(self.cfg["BASE_PATH_DATA"], self.cfg["NAME"], self.cfg[key]["NAME"])
-        if self.cfg["IMG_ONLY"] is not None:
-            paths["IMG_ONLY"] = osp.join(self.cfg["BASE_PATH_DATA"], self.cfg["IMG_ONLY"]["PATH"])
+        if self.cfg["REAL_WORLD"] is not None:
+            paths["REAL_WORLD"] = self.cfg["REAL_WORLD"]["PATH"]
         self.paths['DATA'] = paths
         
         # Open JSON File with relative paths information
@@ -67,18 +70,23 @@ class DataProcessing:
                     else:
                         self.ds_inf[key_ds][key] = ds_inf_tmp[key]
             
-            # if self.cfg['VERT_LIST'] and key_ds != 'IMG_ONLY':
+            # if self.cfg['VERT_LIST'] and key_ds != 'REAL_WORLD':
             #     with open(self.ds_inf['paths']['VERT'], 'r') as file:
             #         self.vert_list[key_ds] = yaml.safe_load(file)
             #     file.close()
     
-    def load_dataset(self, ds_type, normalize=True):
+    def load_dataset(self, ds_type: str, normalize: bool = True):
+        """
+        Loads the dataset given by ds_type and performs all sort of data processing.
+        :param ds_type: Defines which of the following datasets (Train, Test, IMG only) is loaded
+        :param normalize: If we should normalize the images to the range [-1, 1].
+        """
         max_idx = min(self.ds_inf[ds_type]["info"]["num_frames"] - 1, self.cfg[ds_type]["MAX_IMG"] - 1)
         
         dataset = tf.data.Dataset.from_tensor_slices(range(max_idx))
         dataset = dataset.map(lambda x: self.parse_data(x, ds_type), num_parallel_calls=tf.data.experimental.AUTOTUNE)
         
-        if self.cfg['out']['flow'] and ds_type != "IMG_ONLY":
+        if self.cfg['out']['flow'] and ds_type != "REAL_WORLD":
             edge_dataset = self.load_flow_ds(ds_type, max_idx)
             dataset_combined = tf.data.Dataset.zip((dataset, edge_dataset))
             dataset = dataset_combined.map(self.combine_ds, num_parallel_calls=tf.data.experimental.AUTOTUNE)
@@ -91,8 +99,8 @@ class DataProcessing:
             dataset = dataset.cache()
         if self.cfg[ds_type]["SHUFFLE"]:
             dataset = dataset.shuffle(image_count, reshuffle_each_iteration=True)
-        if self.cfg[ds_type]["DATA_AUG"]:
-            dataset = dataset.map(lambda x: ds_aug.augment_mapping(x, self.rng, self.cfg[ds_type]["DATA_AUG"]),
+        if self.cfg[ds_type]["DATA_AUGMENTATION"]:
+            dataset = dataset.map(lambda x: ds_aug.data_augmentation(x, self.rng, self.cfg[ds_type]["DATA_AUGMENTATION"]),
                                   num_parallel_calls=tf.data.experimental.AUTOTUNE)
         if normalize:
             dataset = dataset.map(normalize_input_image, num_parallel_calls=tf.data.experimental.AUTOTUNE)
@@ -106,7 +114,13 @@ class DataProcessing:
         
         return dataset, image_count
     
-    def parse_data(self, img_idx, ds_type):
+    def parse_data(self, img_idx: int, ds_type: str):
+        """
+        Transformation function applied to each element of the dataset.
+        Performs the basic data processing steps, such as image resizing, normalization, ...
+        :param img_idx: current img_idx
+        :param ds_type: Defines the type of the dataset: (Train, Test, IMG only)
+        """
         img_idx_str = tf.strings.as_string(img_idx, width=4, fill='0')
         end_str = tf.constant(".png", dtype=tf.string)
         sep_str = tf.constant('/', dtype=tf.string)
@@ -148,13 +162,15 @@ class DataProcessing:
             mask_path = tf.strings.join([mask_base_path, sep_str, img_idx_str, end_str])
             mask_output = tf.io.read_file(mask_path)
             mask_output = tf.image.decode_png(mask_output, channels=3)
-            # unrolled for loop, execute for each statement individually and also if statements (python side effect)
             for mask_type in self.outputs_ann:
-                idx = self.ds_inf[ds_type]['info']['mask'][mask_type]
-                mask = mask_output[:, :, idx:idx + 1]
-                dataset_dict[self.cfg["out"][mask_type]["name"]] = \
-                    self.preprocess_mask(mask, ds_type, mask_type, False)
-        
+                try:
+                    idx = self.ds_inf[ds_type]['info']['mask'][mask_type]
+                    mask = mask_output[:, :, idx:idx + 1]
+                    dataset_dict[self.cfg["out"][mask_type]["name"]] = \
+                        self.preprocess_mask(mask, ds_type, mask_type, False)
+                except ValueError:
+                    print("dataset.json file does not contain the required mask encoding: ", mask_type)
+
         # else:
         #     if self.paths[ds_type]["PRIOR_ANN"]:
         #         mask_base_path = tf.constant(self.paths[ds_type]['PRIOR_ANN'], dtype=tf.string)
@@ -172,8 +188,11 @@ class DataProcessing:
         
         return dataset_dict
     
-    def preprocess_mask(self, mask, ds_type, mask_type, cfg_input_key):
-        # Python side effect ok as value does not change
+    def preprocess_mask(self, mask: any, ds_type: str, mask_type: str, cfg_input_key: bool):
+        """
+        Performs ground truth data processing, such as resizing. Furthermore the labels are transformed based on
+        the mask encoding (instance, category, binary) chosen in the config file.
+        """
         cfg_first_key = "in" if cfg_input_key else "out"
         cfg_dataset = self.cfg[cfg_first_key][mask_type]
         
@@ -188,15 +207,22 @@ class DataProcessing:
         elif cfg_dataset["mask_encoding"] == 1:
             mask = tf.cast(mask, tf.int32)
             
-            for inst, cat in self.ds_inf[ds_type]["obj2cat"].items():
-                mask = tf.where(mask == int(inst), cat, mask)
-            mask = tf.cast(mask, tf.uint8)
-            
-            self.num_classes[cfg_first_key][mask_type] = len(self.ds_inf[ds_type]["cat2obj"]) + (
+            if "cat2obj" in self.ds_inf[ds_type].keys():
+                self.num_classes[cfg_first_key][mask_type] = len(self.ds_inf[ds_type]["cat2obj"]) + (
                         mask_type == "segmentation")
+                for inst, cat in self.ds_inf[ds_type]["obj2cat"].items():
+                    mask = tf.where(mask == int(inst), cat, mask)
+                mask = tf.cast(mask, tf.uint8)
+            else:
+                self.num_classes[cfg_first_key][mask_type] = 1 + (mask_type == "segmentation")
+                mask = tf.where(mask > 0, 1, 0)
         else:
-            self.num_classes[cfg_first_key][mask_type] = len(self.ds_inf[ds_type]["obj2cat"]) + (
+            if "obj2cat" in self.ds_inf[ds_type].keys():
+                self.num_classes[cfg_first_key][mask_type] = len(self.ds_inf[ds_type]["obj2cat"]) + (
                         mask_type == "segmentation")
+            else:
+                self.num_classes[cfg_first_key][mask_type] = 1 + (mask_type == "segmentation")
+                mask = tf.where(mask > 0, 1, 0)
         
         # reshape:
         shape = tf.shape(mask)
@@ -204,19 +230,22 @@ class DataProcessing:
         
         if mask_type == "segmentation":
             mask = tf.image.resize(mask, cfg_dataset["shape"], method="nearest")
-            mask = reshape_mask_segmentation(mask, self.num_classes[cfg_first_key][mask_type])
+            mask = apply_one_hot_encoding_to_segmentation_mask(mask, self.num_classes[cfg_first_key][mask_type])
         else:
-            mask = reshape_mask(mask, self.num_classes[cfg_first_key][mask_type])
+            mask = apply_one_hot_encoding_to_mask(mask, self.num_classes[cfg_first_key][mask_type])
             mask = self.resize_label_map(mask, current_shape, self.num_classes[cfg_first_key][mask_type],
                                          cfg_dataset["shape"])
         return tf.cast(mask, tf.float32)
     
-    def resize_label_map(self, label, current_shape_label, num_classes, mask_size, already_reshaped=True):
+    def resize_label_map(self, label: any, current_shape_label: any, num_classes: int, mask_size: any, one_hot_encoded: bool = True):
+        """
+        Ground truth labels such as Edge Map are discrete values. In order to resize them, a special transformation is required.
+        """
         # label 3D
         label = tf.cast(label, tf.int32)
         label = tf.expand_dims(label, axis=0)
         
-        if not already_reshaped:
+        if not one_hot_encoded:
             class_range = tf.range(1, num_classes + 1)
             class_range_reshape = tf.reshape(class_range, [1, 1, 1, num_classes])
             label = tf.cast(class_range_reshape == label, dtype=tf.int32)
@@ -225,21 +254,24 @@ class DataProcessing:
         
         edge_width_height = int(current_shape_label[0] / mask_size[0]) + 1
         edge_width_width = int(current_shape_label[1] / mask_size[1]) + 1
-        kernel = tf.ones([edge_width_height, edge_width_width, num_classes + (already_reshaped is not True), 1],
+        kernel = tf.ones([edge_width_height, edge_width_width, num_classes + (one_hot_encoded is not True), 1],
                          tf.float32)
-        label_pad = tf.cast(label, tf.float32)
-        label_widen = tf.nn.depthwise_conv2d(label_pad, kernel, strides=[1, 1, 1, 1], padding="SAME")
+        label = tf.cast(label, tf.float32)
+        label_widen = tf.nn.depthwise_conv2d(label, kernel, strides=[1, 1, 1, 1], padding="SAME")
         label_widen = tf.cast(tf.clip_by_value(label_widen, 0, 1), tf.int32)
         
         label_resized = tf.image.resize(label_widen, mask_size, method='nearest', antialias=True)
         
-        if not already_reshaped:
+        if not one_hot_encoded:
             label_resized = tf.math.argmax(label_resized, axis=-1, output_type=tf.int32)
             label_resized = tf.expand_dims(label_resized, axis=-1)
         label = tf.squeeze(label_resized, axis=0)
         return label
     
-    def combine_ds(self, dataset_dict, flow_field):
+    def combine_ds(self, dataset_dict: any, flow_field: any):
+        """
+        The flow field is loaded as an own dataset. This function combines the image and labels dataset with the flow field one.
+        """
         flow_field = tf.image.resize(flow_field, self.cfg["out"]["flow"]["shape"], method='bilinear')[:, :, 0:2]
         ds_name = self.cfg["out"]["flow"]["name"]
         dataset_dict[ds_name] = flow_field
@@ -250,7 +282,12 @@ class DataProcessing:
             dataset_dict[ds_name] = dataset_dict[ds_name] * tf.cast(edge_label, tf.float32)
         return dataset_dict
     
-    def load_flow_ds(self, ds_type, max_idx):
+    def load_flow_ds(self, ds_type: str, max_idx: int):
+        """
+        Load the flow field dataset
+        :param max_idx: max amount of flow field maps loaded
+        :param ds_type: Defines the type of the dataset: (Train, Test, IMG only)
+        """
         edge_stacked = []
         for i in range(max_idx):
             edge = np.load(self.paths[ds_type]['EDGE_FLOW'] + '/{:04}.npy'.format(i))
@@ -263,6 +300,9 @@ class DataProcessing:
         return edge_dataset
     
     def input_output_keys(self):
+        """
+        saves a list of inputs and outputs (edge, contour, segmentation) loaded. Defined in the config file.
+        """
         candidates = ['edge', 'contour', 'segmentation']
         for c in candidates:
             if self.cfg['in'][c]:
@@ -271,6 +311,10 @@ class DataProcessing:
                 self.outputs_ann.append(c)
     
     def set_input_output_data_cfg(self):
+        """
+        Defines the dictionaries: input_data_cfg and output_data_cfg.
+        These two dictionaries contain relevant information for the network.
+        """
         self.input_data_cfg = {
             "img": {"input_name": self.cfg["in"]["img"]["name"], "shape": self.cfg["in"]["img"]["shape"]}}
         if self.cfg["in"]["edge"]:
@@ -300,7 +344,10 @@ class DataProcessing:
                                             "shape": self.cfg["out"]["flow"]["shape"]}
 
 
-def split_dataset_dictionary(datapoint):
+def split_dataset_dictionary(datapoint: any):
+    """
+    Keras model.fit() requires to split the input and output data into a tuple
+    """
     datapoint_input = dict()
     datapoint_output = dict()
     for key in datapoint.keys():
@@ -311,12 +358,18 @@ def split_dataset_dictionary(datapoint):
     return datapoint_input, datapoint_output
 
 
-def normalize_input_image(datapoint):
+def normalize_input_image(datapoint: any):
+    """
+    Apply image normalization to values in the range of [-1, 1]
+    """
     datapoint['in_img'] = tf.cast(datapoint['in_img'], tf.float32) / 127.5 - 1.0
     return datapoint
 
 
-def reshape_mask(mask, num_classes):
+def apply_one_hot_encoding_to_mask(mask: any, num_classes: int):
+    """
+    Integer encoded labels are one hot encoded (each class has own layer)
+    """
     mask = tf.cast(mask, tf.int32)
     class_range = tf.range(1, num_classes + 1, dtype=tf.int32)
     class_range_reshape = tf.reshape(class_range, [1, 1, num_classes])
@@ -325,7 +378,10 @@ def reshape_mask(mask, num_classes):
     return mask
 
 
-def reshape_mask_segmentation(mask, num_classes):
+def apply_one_hot_encoding_to_segmentation_mask(mask, num_classes):
+    """
+    Integer encoded labels are one hot encoded (each class has own layer)
+    """
     mask = tf.cast(mask, tf.int32)
     class_range = tf.range(0, num_classes, dtype=tf.int32)
     class_range_reshape = tf.reshape(class_range, [1, 1, num_classes])

@@ -1,72 +1,75 @@
 import numpy as np
 from scipy.stats import norm
 import tensorflow as tf
-import tensorflow_addons as tfa
 
 
-def value_augmentation_spot_light(shape, value, strength_spot):
-    shape = shape.numpy()
-
-    uniform_value_diff = np.random.uniform(-value, value)
-    mask = np.zeros(shape)
-    mask[:, :, 2] = uniform_value_diff
-    strength = np.random.uniform(0.0, strength_spot)
-    mask_raw = generate_spot_light_mask(mask_size=(shape[1], shape[0]))
-    mask[:, :, 2] = mask[:, :, 2] + strength * mask_raw
-    mask[:, :, 1] = -strength * mask_raw
-    return mask
-
-def augment_mapping(datapoint, rng, aug_param):
-    if aug_param["blur"]:
-        sigma = np.random.uniform(0, aug_param["sigma"])
-        datapoint['in_img'] = tfa.image.gaussian_filter2d(datapoint['in_img'], (5, 5), sigma)
-
-    if aug_param["noise_std"] != 0:
+def data_augmentation(datapoint, rng, data_augmentation_param):
+    """
+    Apply Data Augmentation to the dataset
+    :param datapoint: consists of image, edge map, ...
+    :param rng: random number generator to get the seed used by the data augmentation
+    :param data_augmentation_param: parameters set in the config file
+    :return: augmented datapoint
+    """
+    if data_augmentation_param["noise_std"] != 0:
         datapoint['in_img'] = tf.cast(datapoint['in_img'], tf.float32)
-        datapoint['in_img'] = tf.keras.layers.GaussianNoise(aug_param["noise_std"])(datapoint['in_img'], training=True)
+        datapoint['in_img'] = tf.keras.layers.GaussianNoise(data_augmentation_param["noise_std"])(datapoint['in_img'], training=True)
         datapoint['in_img'] = tf.clip_by_value(datapoint['in_img'], 0, 255.0)
         datapoint['in_img'] = tf.cast(datapoint['in_img'], tf.uint8)
 
     seed = rng.make_seeds(2)[0]
-    datapoint['in_img'] = tf.image.stateless_random_contrast(datapoint['in_img'], aug_param["contrast_factor"], 1 / aug_param["contrast_factor"], seed)
+    datapoint['in_img'] = tf.image.stateless_random_contrast(datapoint['in_img'], data_augmentation_param["contrast_factor"], 1 / data_augmentation_param["contrast_factor"], seed)
     seed = rng.make_seeds(2)[0]
-    datapoint['in_img'] = tf.image.stateless_random_brightness(datapoint['in_img'], aug_param["brightness"], seed)
+    datapoint['in_img'] = tf.image.stateless_random_brightness(datapoint['in_img'], data_augmentation_param["brightness"], seed)
 
     seed = rng.make_seeds(2)[0]
-    datapoint['in_img'] = tf.image.stateless_random_hue(datapoint['in_img'], aug_param["hue"], seed)
+    datapoint['in_img'] = tf.image.stateless_random_hue(datapoint['in_img'], data_augmentation_param["hue"], seed)
     seed = rng.make_seeds(2)[0]
-    datapoint['in_img'] = tf.image.stateless_random_saturation(datapoint['in_img'], aug_param["saturation"],
-                                                            1 / aug_param["saturation"], seed)
-    seed = rng.make_seeds(2)[0]
+    datapoint['in_img'] = tf.image.stateless_random_saturation(datapoint['in_img'], data_augmentation_param["saturation"],
+                                                            1 / data_augmentation_param["saturation"], seed)
 
-    # convert to HSV
-    # datapoint['in_img'] = tf.image.convert_image_dtype(datapoint['in_img'], tf.float32)
-    # datapoint['in_img'] = tf.image.rgb_to_hsv(datapoint['in_img'])
-    #
-    # mask = tf.py_function(value_augmentation_spot_light,
-    #                       inp=[datapoint['in_img'].shape, aug_param["value"], aug_param["strength_spot"]], Tout=tf.float32)
-    # gaussian_noise = tf.random.stateless_uniform([1], seed, minval=0, maxval=aug_param["gaussian_value"])
-    # mask = tf.keras.layers.GaussianNoise(gaussian_noise)(mask, training=True)
-    # datapoint['in_img'] = mask + datapoint['in_img']
-    # datapoint['in_img'] = tf.clip_by_value(datapoint['in_img'], 0.0, 1.0)
-    #
-    # # convert back to RGB of uint8: [0,255]
-    # datapoint['in_img'] = tf.image.hsv_to_rgb(datapoint['in_img'])
-    # datapoint['in_img'] = tf.image.convert_image_dtype(datapoint['in_img'], tf.uint8, saturate=True)
-
-    # seed = rng.make_seeds(2)[0]
-    # for key in datapoint.keys():
-    #     if 'VERT' not in key:
-    #         datapoint[key] = tf.image.stateless_random_flip_left_right(datapoint[key], seed)
-    #         if seed[0] > 5:
-    #             print("x")
-
-    # seed = rng.make_seeds(2)[0]
-    # for key in datapoint.keys():
-    #     if 'VERT' not in key:
-    #         datapoint[key] = tf.image.stateless_random_flip_up_down(datapoint[key], seed)
+    if data_augmentation_param["apply_spotlight"]:
+        # convert to HSV
+        datapoint['in_img'] = tf.image.convert_image_dtype(datapoint['in_img'], tf.float32)
+        datapoint['in_img'] = tf.image.rgb_to_hsv(datapoint['in_img'])
+    
+        mask = tf.py_function(python_wrapper_spot_light,
+                              inp=[datapoint['in_img'].shape, data_augmentation_param["spotlight_strength"]], Tout=tf.float32)
+        datapoint['in_img'] = mask + datapoint['in_img']
+        datapoint['in_img'] = tf.clip_by_value(datapoint['in_img'], 0.0, 1.0)
+    
+        # convert back to RGB of uint8: [0,255]
+        datapoint['in_img'] = tf.image.hsv_to_rgb(datapoint['in_img'])
+        datapoint['in_img'] = tf.image.convert_image_dtype(datapoint['in_img'], tf.uint8, saturate=True)
+    
+    if data_augmentation_param["apply_random_flip"]:
+        seed = rng.make_seeds(2)[0]
+        for key in datapoint.keys():
+            datapoint[key] = tf.image.stateless_random_flip_left_right(datapoint[key], seed)
+    
+        seed = rng.make_seeds(2)[0]
+        for key in datapoint.keys():
+            datapoint[key] = tf.image.stateless_random_flip_up_down(datapoint[key], seed)
 
     return datapoint
+
+
+def python_wrapper_spot_light(shape, strength_spot):
+    """
+    python wrapper needed by tensorflow in order to transform tensoflow tensors to numpy.
+    :param shape: current shape of the image
+    :param strength_spot: max added light (decrease saturation and increase value by this amount)
+    :return: mask to sum up to the image in hsv color space
+    """
+    shape = shape.numpy()
+
+    mask = np.zeros(shape)
+    strength = np.random.uniform(-strength_spot, strength_spot)
+    mask_raw = generate_spot_light_mask(mask_size=(shape[1], shape[0]))
+    mask[:, :, 2] = strength * mask_raw
+    mask[:, :, 1] = -strength * mask_raw
+    return mask
+
 
 def generate_spot_light_mask(mask_size, position=None, max_brightness=255, min_brightness=0, ):
     """
@@ -85,15 +88,8 @@ def generate_spot_light_mask(mask_size, position=None, max_brightness=255, min_b
         position = [(np.random.randint(0, mask_size[0]), np.random.randint(0, mask_size[1]))]
     mask = np.zeros(shape=(mask_size[1], mask_size[0]), dtype=np.float32)
     mu = np.sqrt(mask.shape[0] ** 2 + mask.shape[1] ** 2)
-    # dev = mu / 3.5
     dev = mu / 7
     mask = _decay_value_radically_norm_in_matrix(mask_size, position, max_brightness, min_brightness, dev)
-    # mask = np.asarray(mask, dtype=np.uint8)
-    # add median blur
-    # mask = cv2.medianBlur(mask, 5)
-    # mask = 255 - mask
-    # cv2.imshow("mask", mask)
-    # cv2.waitKey(0)
     return mask
 
 
@@ -114,19 +110,3 @@ def _decay_value_radically_norm_in_matrix(mask_size, centers, max_value, min_val
     mask = x_value_rate * (max_value - min_value) + min_value
     mask[mask > 255] = 255
     return mask / 255.0
-
-
-def _decay_value_radically_norm(x, centers, max_value, min_value, dev):
-    """
-    Calculate point value decayed from center following Gaussian decay. If multiple centers are given, value
-    from each center sums up while limiting the accumulated value into [0, 255]
-    NOTE: assuming light at each center is identical: same brightness and same decay rate
-    """
-    center_prob = norm.pdf(0, 0, dev)
-    x_value_rate = 0
-    for center in centers:
-        distance = np.sqrt((center[0] - x[0]) ** 2 + (center[1] - x[1]) ** 2)
-        x_value_rate += norm.pdf(distance, 0, dev) / center_prob
-    x_value = x_value_rate * (max_value - min_value) + min_value
-    x_value = 255 if x_value > 255 else x_value
-    return x_value

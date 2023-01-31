@@ -35,35 +35,21 @@ TEST:
   MAX_IMG: 300
 
   BATCH_SIZE: 3
-  # BATCH_SIZE: 1
   CACHE: true
   SHUFFLE: false
   PREFETCH: true
 
-  DATA_AUG: null
+  DATA_AUGMENTATION: null
 
 TRAIN:
   NAME: Train
-  # MAX_IMG: 1500
   MAX_IMG: 1500
 
   BATCH_SIZE: 3
-  # BATCH_SIZE: 1
   CACHE: true
   SHUFFLE: true
   PREFETCH: true
 
-  DATA_AUG: null
+  DATA_AUGMENTATION: null
 
-IMG_ONLY: null
-#  PATH: 'real_world'
-#
-#  MAX_IMG: 41
-#
-#  BATCH_SIZE: 5
-#
-#  CACHE: true
-#  SHUFFLE: false
-#  PREFETCH: true
-#
-#  DATA_AUG: null
+REAL_WORLD: null

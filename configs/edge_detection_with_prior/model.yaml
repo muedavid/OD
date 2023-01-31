@@ -1,25 +1,25 @@
-TRAIN_MODEL: true
-EPOCHS: 200
+TRAIN_MODEL: true                   # If a new model should be trained or just loaded
+EPOCHS: 200                         # Number of Epochs
 
-NAME: edge_detection_with_prior_p
-SAVE: true
-SEED: null
+NAME: edge_detection_with_prior     # Name of the Network Architecture
+SAVE: true                          # If the Model and Figures should be Save
+SEED: null                          # For the random data generator used by Data Augmentation and Shuffling
 PARSER: false
 CONVERT_TO_TFLITE: true
 
-PADDING: 2
+PADDING: 2                          # Num of Pixels at border of output, for which no loss function is applied
 PIXELS_AT_EDGE_WITHOUT_LOSS: 1
 
 LOSS:
   edge:
     sigmoid:
-      apply: false
+      apply: true
       class_individually_weighted: false
       # Values are set, such that recall and precision are similar
       min_edge_loss_weighting: 0.15
       max_edge_loss_weighting: 0.85
     focal:
-      apply: true
+      apply: false
       edge_loss_weighting: true
       # Values are set, such that recall and precision are similar
       min_edge_loss_weighting: 0.2
@@ -33,16 +33,17 @@ LOSS:
   flow: null
 
 LR:
-  START:  0.001
+  START:  0.01
   END:    0.00005
   POWER: 0.9
 
 CALLBACKS:
   DEL_OLD_CKPT: true
-  CKPT_FREQ: 10
+  CKPT_FREQ: 20
   DEL_OLD_TB: true
   LOG_TB: false
   TENSORBOARD: false
 
+# For Transformation to TFLite. Add the name and category label
 CATEGORIES:
   edge: 1

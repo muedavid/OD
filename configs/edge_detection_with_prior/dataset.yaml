@@ -13,14 +13,8 @@ in:
     mask_encoding: 2
     shape: [ 80, 45 ]
   contour: null
-#    name: "in_contour"
-#    mask_encoding: 2
-#    shape: [ 80, 45 ]
-    #name: "in_vert"
   segmentation: null
-    #name: "in_segmentation"
   prior_img: null
-    #name: "in_prior_img"
 
 out:
   edge:
@@ -29,11 +23,7 @@ out:
     shape: [ 320, 180 ]
   contour: null
   segmentation: null
-    #name: "out_segmentation"
   flow: null
-    #name: "out_flow"
-    #only_edge: true
-    #shape: [ 80, 45 ]
 
 
 # DATASETS:
@@ -42,38 +32,33 @@ TEST:
   MAX_IMG: 300
 
   BATCH_SIZE: 3
-  # BATCH_SIZE: 1
   CACHE: true
   SHUFFLE: false
   PREFETCH: true
 
-  DATA_AUG: null
+  DATA_AUGMENTATION: null
 
 TRAIN:
   NAME: Train
-  # MAX_IMG: 1500
   MAX_IMG: 1500
 
   BATCH_SIZE: 3
-  # BATCH_SIZE: 1
   CACHE: true
   SHUFFLE: true
   PREFETCH: true
 
-  DATA_AUG:
-    blur: false
-    brightness: 0.2
-    contrast_factor: 0.8
-    # gaussian_value: 0.75
-    hue: 0.02
+  DATA_AUGMENTATION:
+    brightness: 0.25
+    contrast_factor: 0.75
+    hue: 0.05
+    saturation: 0.75
+    apply_random_flip: true
     noise_std: 0
-    saturation: 0.8
-    sigma: 1.0
-    strength_spot: 0.3
-    value: 0.3
+    apply_spotlight: false
+    spotlight_strength: 0.3 #max additional value and brightness
 
-IMG_ONLY:
-  PATH: 'real_world'
+REAL_WORLD:
+  PATH: /home/david/SemesterProject/Datasets/real_world
 
   MAX_IMG: 41
 
@@ -83,4 +68,4 @@ IMG_ONLY:
   SHUFFLE: false
   PREFETCH: true
 
-  DATA_AUG: null
+  DATA_AUGMENTATION: null

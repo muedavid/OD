@@ -4,17 +4,27 @@ from models.network_elements import utils
 
 def viot_coarse_features_no_prior(input_layer, num_classes, num_filters_per_class, output_shape):
     num_filters = num_classes * num_filters_per_class
+
+    image_1 = utils.convolution_block(input_layer, num_filters=3 * num_filters, kernel_size=3, separable=True)
+    image_2 = utils.convolution_block(image_1, num_filters=2 * num_filters, kernel_size=3, separable=True)
+    image_3 = utils.convolution_block(image_2, num_filters=2 * num_filters, kernel_size=1)
+    image_4 = utils.mobile_net_v2_inverted_residual(image_1, strides=2, depth_multiplier=4)
+    image_5 = utils.convolution_block(image_4, kernel_size=1, num_filters=num_filters)
+    image_5 = tf.image.resize(image_5, (image_1.shape[1], image_1.shape[2]))
+    image_6 = utils.convolution_block(image_4, kernel_size=3, num_filters=num_filters)
+    image_6 = tf.image.resize(image_6, (image_1.shape[1], image_1.shape[2]))
+    image_7 = utils.convolution_block(image_4, kernel_size=5, num_filters=2)
+    image_7 = tf.image.resize(image_7, (image_1.shape[1], image_1.shape[2]))
+    image_8 = tf.keras.layers.Concatenate()([image_3, image_5, image_6, image_7])
+
+    image_9 = utils.convolution_block(image_8, kernel_size=1, num_filters=4 * num_filters)
+    image_10 = utils.convolution_block(image_9, kernel_size=1, num_filters=4 * num_filters)
+    image_11 = utils.convolution_block(image_10, kernel_size=1, num_filters=2 * num_filters)
+    image_12 = utils.convolution_block(image_11, kernel_size=3, num_filters=2 * num_filters, separable=True)
+    image_13 = tf.image.resize(image_12, output_shape, method="bilinear")
+    image_14 = utils.convolution_block(image_13, kernel_size=3, num_filters=2*num_filters, separable=True)
     
-    image_1 = utils.convolution_block(input_layer, kernel_size=3, num_filters=16)
-    image_1 = utils.convolution_block(image_1, kernel_size=3, num_filters=16)
-    image_1_1 = tf.keras.layers.AveragePooling2D((5, 5), strides=1, padding="SAME")(image_1)
-    image_1_2 = tf.keras.layers.MaxPool2D((5, 5), strides=1, padding="SAME")(image_1)
-    image_1 = tf.keras.layers.Concatenate()([image_1_1, image_1_2, image_1])
-    image_1 = utils.convolution_block(image_1, kernel_size=1, num_filters=32)
-    image_1 = utils.convolution_block(image_1, kernel_size=3, num_filters=8)
-    image_edge = tf.image.resize(image_1, (output_shape[0], output_shape[1]), method="bilinear")
-    # image_edge = tf.keras.layers.AveragePooling2D((2, 2), strides=1, padding="SAME")(image_edge)
-    return image_edge
+    return image_14
 
 
 def viot_coarse_features_prior(input_layer, input_edge, num_classes, num_filters_per_class, output_shape):

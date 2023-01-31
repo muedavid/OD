@@ -2,25 +2,8 @@ import tensorflow as tf
 from models.network_elements import utils
 
 
-def viot_fusion_module(dec_edge, side_1, side_2, num_classes, num_filters_per_class, output_name="out_edge"):
-    num_filters = num_filters_per_class * num_classes
-    fusion_1 = tf.keras.layers.Concatenate()([dec_edge, side_1, side_2])
-    fusion_1 = utils.convolution_block(fusion_1, kernel_size=1, num_filters=4 * num_filters)
-    fusion_1 = utils.convolution_block(fusion_1, kernel_size=3, num_filters=4 * num_filters, separable=True)
-    fusion_1 = utils.convolution_block(fusion_1, kernel_size=1, num_filters=num_filters, BN=False)
-    # fusion_1 = utils.convolution_block(fusion_1, kernel_size=3, num_filters=num_filters, separable=True)
-    output = utils.convolution_block(fusion_1, kernel_size=3, BN=False, RELU=False, num_filters=1)
-    # adaptive_weight = tf.keras.layers.GlobalAveragePooling2D(keepdims=True)(fusion_1)
-    # adaptive_weight = utils.convolution_block(adaptive_weight, kernel_size=1, num_filters=4, BN=False)
-    # adaptive_weight = utils.convolution_block(adaptive_weight, kernel_size=1, num_filters=4, BN=False, RELU=False)
-    # adaptive_weight = tf.keras.layers.Activation(activation="hard_sigmoid")(adaptive_weight)
-    # fusion_1 = fusion_1 * adaptive_weight * dec_avg
-    
-    return tf.keras.layers.Activation(activation='sigmoid', name=output_name)(output)
-
-
-def viot_fusion_module_prior(pyramid_module_input, side_feature_input, num_classes, num_filters_per_class, output_shape,
-                             output_name="out_edge"):
+def viot_fusion_module(pyramid_module_input, side_feature_input, num_classes, num_filters_per_class, output_shape,
+                       output_name="out_edge"):
     num_filters = num_filters_per_class * num_classes
     fusion_module_1 = tf.keras.layers.Concatenate()([pyramid_module_input, side_feature_input])
     fusion_module_2 = utils.convolution_block(fusion_module_1, kernel_size=1, num_filters=2 * num_filters, BN=False,
@@ -45,7 +28,8 @@ def viot_fusion_module_prior_segmentation(pyramid_module_input, side_feature_inp
     fusion_module_4 = utils.convolution_block(fusion_module_3, kernel_size=3, num_filters=num_filters, separable=True)
     fusion_module_5 = tf.image.resize(fusion_module_4, output_shape, method="bilinear")
     fusion_module_6 = utils.convolution_block(fusion_module_5, kernel_size=3, num_filters=num_filters, separable=True)
-    fusion_module_7 = tf.keras.layers.Conv2D(kernel_size=3, filters=num_classes, name=output_name, padding="SAME")(fusion_module_6)
+    fusion_module_7 = tf.keras.layers.Conv2D(kernel_size=3, filters=num_classes, name=output_name, padding="SAME")(
+        fusion_module_6)
     return fusion_module_7
 
 

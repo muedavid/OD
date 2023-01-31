@@ -22,18 +22,27 @@ class Model:
         
         tf.random.set_seed(self.cfg['SEED'])
     
-    def load_data(self, dataset_name):
+    def load_data(self, dataset_name: str):
+        """
+        Load the Model Data Class for saving and loading model related data to disk.
+        """
         self.Data = model_data.ModelData(self.cfg["NAME"], dataset_name, make_dirs=True,
                                          del_old_ckpt=self.cfg["CALLBACKS"]["DEL_OLD_CKPT"] and self.cfg['TRAIN_MODEL'],
                                          del_old_tb=self.cfg["CALLBACKS"]["DEL_OLD_TB"] and self.cfg['TRAIN_MODEL'])
         
         self.train_model = self.cfg['TRAIN_MODEL']
     
-    def get_neural_network_model(self, input_data_cfg, output_data_cfg):
+    def get_neural_network_model(self, input_data_cfg: dict, output_data_cfg: dict):
+        """
+        returns the tensorflow keras model.
+        """
         model = network.NN(self.cfg, input_data_cfg, output_data_cfg)
         return model.get_model()
     
     def get_best_model_from_checkpoints(self):
+        """
+        Checks all models saved at the checkpoints during training and loads the one with max f1 score on the validation dataset.
+        """
         print(self.Data.get_model_path_max_f1())
         model = tf.keras.models.load_model(self.Data.get_model_path_max_f1(),
                                            custom_objects=self.custom_objects, compile=False)
@@ -45,7 +54,10 @@ class Model:
         
         return model
     
-    def get_loss_function(self, output_data_cfg):
+    def get_loss_function(self, output_data_cfg: dict):
+        """
+        loads the loss function specified in the cfg file.
+        """
         loss_functions = dict()
         
         edge_loss_cfg = self.cfg['LOSS']['edge']
@@ -85,7 +97,10 @@ class Model:
         
         return loss_functions
     
-    def get_metrics(self, output_data_cfg):
+    def get_metrics(self, output_data_cfg: dict):
+        """
+        loads the metrics specified in the cfg file.
+        """
         metric_dic = dict()
         
         if self.cfg['LOSS']['edge']:
@@ -108,7 +123,10 @@ class Model:
             metric_dic[output_data_cfg["segmentation"]["name"]] = [tf.keras.metrics.CategoricalAccuracy()]
         return metric_dic
     
-    def get_callbacks(self, f1_edge_logged=True):
+    def get_callbacks(self, f1_edge_logged: bool = True):
+        """
+        At the given checkpoint frequency set in the config file, the following callback are called.
+        """
         # freq = int(np.ceil(img_count / self.bs) * self.cfg["CALLBACKS"]["CKPT_FREQ"]) + 1
         if f1_edge_logged:
             filepath = self.Data.paths["CKPT"] + "/ckpt-loss={val_loss:.2f}-epoch={epoch:.2f}-f1={val_f1_edge:.4f}"
@@ -125,14 +143,26 @@ class Model:
         
         return callbacks
     
-    def get_lr(self, img_count, batch_size):
+    def get_lr(self, img_count: int, batch_size: int):
+        """
+        returns the learning rate schedule used during training
+        """
         decay_step = np.ceil(img_count / batch_size) * self.cfg["EPOCHS"]
         lr_schedule = tf.keras.optimizers.schedules.PolynomialDecay(self.cfg['LR']['START'], decay_steps=decay_step,
                                                                     end_learning_rate=self.cfg['LR']['END'],
                                                                     power=self.cfg['LR']['POWER'])
         return lr_schedule
     
-    def evaluate_and_plot_MF_score(self, model, dataset, num_classes, path, threshold_edge_width=0.0):
+    def evaluate_and_plot_MF_score(self, model: any, dataset: any, num_classes: int, path: str,
+                                   threshold_edge_width: float = 0.0):
+        """
+        evaluate the MF score on the given dataset.
+        :param model: keras model
+        :param dataset: keras dataset
+        :param num_classes: performs evaluation for each class individually
+        :param path: the evaluation is save as Figure to the given path
+        :param threshold_edge_width: threshold on how far an edge pixel is allowed to be, such that its match still counts as true edge.
+        """
         edge_detection_plots.plot_threshold_metrics_evaluation(model=model,
                                                                ds=dataset,
                                                                num_classes=num_classes,
@@ -145,7 +175,11 @@ class Model:
                                                                    'PIXELS_AT_EDGE_WITHOUT_LOSS'],
                                                                threshold_edge_width=threshold_edge_width)
     
-    def convert_model_to_tflite(self, model):
+    def convert_model_to_tflite(self, model: any):
+        """
+        convert the model to tflite and stores is to disk
+        :param model: keras model
+        """
         if not os.path.isfile(self.Data.files['OUTPUT_TFLITE_MODEL']):
             model.trainable = False
             model.save(self.Data.paths["TFLITE"])
