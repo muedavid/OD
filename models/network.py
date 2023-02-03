@@ -33,29 +33,27 @@ class NN:
     
     def edge_detection_without_prior(self):
         if self.output_data_cfg["edge"]["num_classes"] == 1:
-            num_filter_per_class = 6
+            num_filter_per_class = 5
         else:
             num_filter_per_class = 2
         
-        input_image, backbone_output_1, backbone_output_2 = backbones.backbone_edge_detection_without_prior(
+        input_image, backbone_output_1, backbone_output_2 = backbones.backbone_edge_detection(
             self.input_shape_img, num_filters=num_filter_per_class * self.output_data_cfg["edge"]["num_classes"])
         
         side_output = side_outputs.viot_side_feature(backbone_output_1,
-                                                     output_dims=self.output_data_cfg["edge"]["shape"],
                                                      num_classes=self.output_data_cfg["edge"]["num_classes"],
                                                      num_filters_per_class=num_filter_per_class)
         
         pyramid_module_output = pyramid_modules.viot_coarse_features_no_prior(
             backbone_output_2,
             num_classes=self.output_data_cfg["edge"]["num_classes"],
-            num_filters_per_class=num_filter_per_class,
-            output_shape=(side_output.shape[1], side_output.shape[2]))
+            num_filters_per_class=num_filter_per_class)
         
-        output = outputs.viot_fusion_module(pyramid_module_output, side_output,
-                                            num_classes=self.output_data_cfg["edge"]["num_classes"],
-                                            num_filters_per_class=num_filter_per_class,
-                                            output_shape=self.output_data_cfg["edge"]["shape"],
-                                            output_name="out_edge")
+        output = decoders.viot_fusion_module(pyramid_module_output, side_output,
+                                             num_classes=self.output_data_cfg["edge"]["num_classes"],
+                                             num_filters_per_class=num_filter_per_class,
+                                             output_shape=self.output_data_cfg["edge"]["shape"],
+                                             output_name="out_edge")
         
         model = keras.Model(inputs=input_image,
                             outputs=[output, backbone_output_1, backbone_output_1, pyramid_module_output, side_output])
@@ -76,25 +74,24 @@ class NN:
         input_edge = keras.layers.Input(name=self.input_data_cfg["edge"]["name"], shape=input_edge_shape)
         
         input_image, backbone_output_1, backbone_output_2 = \
-            backbones.backbone_edge_detection_with_prior(self.input_shape_img,
+            backbones.backbone_edge_detection(self.input_shape_img,
                                                          num_filters=num_filter_per_class * num_classes)
         
-        side_output = side_outputs.viot_side_feature_prior(backbone_output_1,
-                                                           num_classes=num_classes,
-                                                           num_filters_per_class=num_filter_per_class)
+        side_output = side_outputs.viot_side_feature(backbone_output_1,
+                                                     num_classes=num_classes,
+                                                     num_filters_per_class=num_filter_per_class)
         
         pyramid_module_output = \
             pyramid_modules.viot_coarse_features_prior(backbone_output_2,
                                                        input_edge,
                                                        num_classes=num_classes,
-                                                       num_filters_per_class=num_filter_per_class,
-                                                       output_shape=(side_output.shape[1], side_output.shape[2]))
+                                                       num_filters_per_class=num_filter_per_class)
         
-        output = outputs.viot_fusion_module(pyramid_module_output, side_output,
-                                            num_classes=self.output_data_cfg["edge"]["num_classes"],
-                                            num_filters_per_class=num_filter_per_class,
-                                            output_shape=self.output_data_cfg["edge"]["shape"],
-                                            output_name="out_edge")
+        output = decoders.viot_fusion_module(pyramid_module_output, side_output,
+                                             num_classes=self.output_data_cfg["edge"]["num_classes"],
+                                             num_filters_per_class=num_filter_per_class,
+                                             output_shape=self.output_data_cfg["edge"]["shape"],
+                                             output_name="out_edge")
         
         model = keras.Model(inputs=[input_image, input_edge],
                             outputs=[output, backbone_output_1, backbone_output_1, pyramid_module_output, side_output])
@@ -125,16 +122,14 @@ class NN:
             pyramid_modules.viot_coarse_features_prior_segmentation(backbone_output_2,
                                                                     input_edge,
                                                                     num_classes=num_classes,
-                                                                    num_filters_per_class=num_filter_per_class,
-                                                                    output_shape=(
-                                                                        side_output.shape[1], side_output.shape[2]))
+                                                                    num_filters_per_class=num_filter_per_class)
         
-        output = outputs.viot_fusion_module_prior_segmentation(pyramid_module_output, side_output,
-                                                               num_classes=num_classes,
-                                                               num_filters_per_class=num_filter_per_class,
-                                                               output_shape=self.output_data_cfg["segmentation"][
-                                                                   "shape"],
-                                                               output_name="out_segmentation")
+        output = decoders.viot_fusion_module_prior_segmentation(pyramid_module_output, side_output,
+                                                                num_classes=num_classes,
+                                                                num_filters_per_class=num_filter_per_class,
+                                                                output_shape=self.output_data_cfg["segmentation"][
+                                                                    "shape"],
+                                                                output_name="out_segmentation")
         
         model = keras.Model(inputs=[input_image, input_edge],
                             outputs=[output])
@@ -169,7 +164,7 @@ class NN:
         
         daspp_output = pyramid_modules.daspp(backbone.output[-1])
         
-        decoder_output = decoders.lite_edge_decoder(daspp_input=daspp_output, side_input=backbone.output[0])
+        decoder_output = decoders.lite_edge_decoder(daspp_output=daspp_output, side_output=backbone.output[0])
         
         output_shape = (backbone.output[0].shape[1], backbone.output[0].shape[2])
         side_1 = side_outputs.lite_edge_side_feature_extraction(backbone.output[0], output_shape)
@@ -181,7 +176,8 @@ class NN:
         sides = [side_1, side_2, side_3, side_4, side_5]
         
         output = outputs.lite_edge_output(decoder_output, sides,
-                                          num_classes=self.output_data_cfg["edge"]["num_classes"])
+                                          num_classes=self.output_data_cfg["edge"]["num_classes"],
+                                          output_shape=self.output_data_cfg["edge"]["shape"])
         
         model = keras.Model(inputs=[backbone.input],
                             outputs=[output])
@@ -195,9 +191,8 @@ class NN:
                                                         alpha=self.cfg["BACKBONE"]["ALPHA"],
                                                         output_layer=self.cfg["BACKBONE"]["OUTPUT_IDS"])
         
-        JPU_output = pyramid_modules.JPU(backbone.output[-1], backbone.output[-2], backbone.output[-2],
-                                         (int(self.output_data_cfg["edge"]["shape"][0] / 4),
-                                          int(self.output_data_cfg["edge"]["shape"][1] / 4)))
+        JPU_output = pyramid_modules.JPU(backbone.output[-1], backbone.output[-2], backbone.output[-3],
+                                         (backbone.output[-3].shape[1], backbone.output[-3].shape[2]))
         
         output_shape = (self.output_data_cfg["edge"]["shape"][0], self.output_data_cfg["edge"]["shape"][1])
         side_1 = side_outputs.FENet_side_feature_extraction(backbone.output[0], output_shape)
@@ -207,7 +202,7 @@ class NN:
         sides = [side_1, side_2, side_3]
         
         output = outputs.FENet(JPU_output, sides, num_classes=self.output_data_cfg["edge"]["num_classes"],
-                               output_shape=self.output_data_cfg["edge"]["shape"])
+                               output_shape=output_shape)
         
         model = keras.Model(inputs=[backbone.input],
                             outputs=[output])

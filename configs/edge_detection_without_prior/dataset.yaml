@@ -45,10 +45,10 @@ TRAIN:
   PREFETCH: true
 
   DATA_AUGMENTATION:
-    brightness: 0.25
-    contrast_factor: 0.75
-    hue: 0.05
-    saturation: 0.75
+    brightness: 0.2
+    contrast_factor: 0.8
+    hue: 0.01
+    saturation: 0.8
     apply_random_flip: true
     noise_std: 0
     apply_spotlight: false

@@ -1,5 +1,5 @@
 TRAIN_MODEL: true
-EPOCHS: 2
+EPOCHS: 200
 
 NAME: FENet
 SAVE: true
@@ -11,47 +11,50 @@ BACKBONE:
   NAME: MobileNetV2
   ALPHA: 1.0
   WEIGHTS: imagenet
-  OUTPUT_IDS: [1, 2, 3, 4, 5]
+  OUTPUT_IDS: [1, 2, 3, 5]
   TRAIN_IDX: null
 
-  FINE_TUNING:
-    EPOCHS: 5
-    FINE_TUNING: false
+PADDING: 2                          # Num of Pixels at border of output, for which no loss function is applied
+NUM_PIXELS_REGION_OF_ATTRACTION: 1
 
 LOSS:
   edge:
     sigmoid:
-      apply: false
-      class_individually_weighted: true
-      min_edge_loss_weighting: 0.4
-      max_edge_loss_weighting: 0.6
-    focal:
       apply: true
       edge_loss_weighting: true
-      min_edge_loss_weighting: 0.4
-      max_edge_loss_weighting: 0.6
-      power: 1.0
+      # Values are set, such that recall and precision are similar
+      max_edge_loss_weighting_edge: 0.9
+      max_edge_loss_weighting_non_edge: 0.7
+      min_edge_loss_weighting_region_of_attraction: 0.1
+      min_edge_loss_weighting_non_edge: 0.3
+    focal:
+      apply: false
+      edge_loss_weighting: true
+      # Values are set, such that recall and precision are similar
+      max_edge_loss_weighting_edge: 0.9
+      max_edge_loss_weighting_non_edge: 0.7
+      min_edge_loss_weighting_region_of_attraction: 0.1
+      min_edge_loss_weighting_non_edge: 0.3
+      power: 4.0
+      decay: true
+      focal_loss_derivative_threshold: 0.05
   vert: null
+  segmentation: null
   cont: null
-  flow_edge: null
-  flow_scene: null
+  flow: null
 
 LR:
-  START: 0.005
-  END: 0.0005
+  START:  0.01
+  END:    0.00005
   POWER: 0.9
 
 CALLBACKS:
   DEL_OLD_CKPT: true
-  CKPT_FREQ: 2
+  CKPT_FREQ: 20
   DEL_OLD_TB: true
   LOG_TB: false
   TENSORBOARD: false
 
+# For Transformation to TFLite. Add the name and category label
 CATEGORIES:
   edge: 1
-#  base: 1
-#  bar: 2
-#  cover: 3
-#  elektro: 4
-#  tube: 5

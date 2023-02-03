@@ -12,7 +12,7 @@ def compute_f1_precision_recall(true_positive, false_positive, false_negative):
 
 
 # @tf.function
-# def number_true_false_positive_negative(y_true, y_prediction, padding, pixels_at_edge_without_loss):
+# def number_true_false_positive_negative(y_true, y_prediction, padding, num_pixels_region_of_attraction):
 #     mask = mask_pixels_for_computation(y_true, padding, 0)
 #     mask = tf.cast(mask, tf.int32)
 #
@@ -27,8 +27,8 @@ def compute_f1_precision_recall(true_positive, false_positive, false_negative):
 
 @tf.function
 def number_true_false_positive_negative(y_true, y_prediction, threshold_edge_width=0, padding=0,
-                                        pixels_at_edge_without_loss=0):
-    mask = mask_pixels_for_computation(y_true, padding, pixels_at_edge_without_loss)
+                                        num_pixels_region_of_attraction=0):
+    mask = mask_pixels_for_computation(y_true, padding, num_pixels_region_of_attraction)
     mask = tf.cast(mask, tf.int32)
     
     # widen the edges for the calculation of the number of true positive
@@ -56,7 +56,7 @@ def number_true_false_positive_negative(y_true, y_prediction, threshold_edge_wid
 
 class BinaryAccuracyEdges(tf.keras.metrics.Metric):
     def __init__(self, num_classes, classes_individually=False, name="accuracy_edges",
-                 threshold_prediction=0.5, print_name="edges", padding=0, pixels_at_edge_without_loss=0, **kwargs):
+                 threshold_prediction=0.5, print_name="edges", padding=0, num_pixels_region_of_attraction=0, **kwargs):
         super(BinaryAccuracyEdges, self).__init__(name=name, **kwargs)
         self.numberTruePredictedPixels = self.add_weight(name="numberTruePredictedPixels", initializer="zeros",
                                                          shape=(num_classes,))
@@ -67,7 +67,7 @@ class BinaryAccuracyEdges(tf.keras.metrics.Metric):
         self.classes_individually = classes_individually
         self.print_name = print_name
         self.padding = padding
-        self.pixels_at_edge_without_loss = pixels_at_edge_without_loss
+        self.num_pixels_region_of_attraction = num_pixels_region_of_attraction
     
     @tf.function
     def update_state(self, y_true, y_pred, sample_weight=None):
@@ -75,7 +75,7 @@ class BinaryAccuracyEdges(tf.keras.metrics.Metric):
         y_pred = tf.cast(y_pred > threshold_prediction, tf.int32)
         y_true = tf.cast(y_true, dtype=tf.int32)
         
-        mask = mask_pixels_for_computation(y_true, self.padding, self.pixels_at_edge_without_loss)
+        mask = mask_pixels_for_computation(y_true, self.padding, self.num_pixels_region_of_attraction)
         mask = tf.cast(mask, tf.int32)
         
         number_true_predicted = tf.cast(tf.reduce_sum(tf.cast((y_true == y_pred), dtype=tf.int32) * mask,
@@ -107,13 +107,13 @@ class BinaryAccuracyEdges(tf.keras.metrics.Metric):
         base_config['num_classes'] = self.num_classes
         base_config['classes_individually'] = self.classes_individually
         base_config['padding'] = self.padding
-        base_config['pixels_at_edge_without_loss'] = self.pixels_at_edge_without_loss
+        base_config['num_pixels_region_of_attraction'] = self.num_pixels_region_of_attraction
         return base_config
 
 
 class F1Edges(tf.keras.metrics.Metric):
     def __init__(self, num_classes, classes_individually=False, threshold_prediction=0.5,
-                 print_name="edges", padding=0, pixels_at_edge_without_loss=0, threshold_edge_width=0,
+                 print_name="edges", padding=0, num_pixels_region_of_attraction=0, threshold_edge_width=0,
                  name="f1_edges",
                  **kwargs):
         super(F1Edges, self).__init__(name=name, **kwargs)
@@ -123,7 +123,7 @@ class F1Edges(tf.keras.metrics.Metric):
         self.num_classes = num_classes
         self.print_name = print_name
         self.padding = padding
-        self.pixels_at_edge_without_loss = pixels_at_edge_without_loss
+        self.num_pixels_region_of_attraction = num_pixels_region_of_attraction
         self.threshold_edge_width = threshold_edge_width
         
         self.numberTruePositive = self.add_weight(name="numberTruePositive", initializer="zeros", shape=(num_classes,))
@@ -142,7 +142,7 @@ class F1Edges(tf.keras.metrics.Metric):
         number_true_positive, number_false_positive, number_true_negative, number_false_negative = \
             number_true_false_positive_negative(y_true, y_pred, padding=self.padding,
                                                 threshold_edge_width=self.threshold_edge_width,
-                                                pixels_at_edge_without_loss=self.pixels_at_edge_without_loss)
+                                                num_pixels_region_of_attraction=self.num_pixels_region_of_attraction)
         
         self.numberTruePositive.assign_add(tf.cast(number_true_positive, tf.float32))
         self.numberFalsePositive.assign_add(tf.cast(number_false_positive, tf.float32))
@@ -182,6 +182,6 @@ class F1Edges(tf.keras.metrics.Metric):
         base_config['threshold_prediction'] = self.thresholdPrediction
         base_config['classes_individually'] = self.classes_individually
         base_config['padding'] = self.padding
-        base_config['pixels_at_edge_without_loss'] = self.pixels_at_edge_without_loss
+        base_config['num_pixels_region_of_attraction'] = self.num_pixels_region_of_attraction
         base_config['threshold_edge_width'] = self.threshold_edge_width
         return base_config

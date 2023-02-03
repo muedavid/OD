@@ -3,11 +3,12 @@ NAME: edge_detection
 BASE_PATH_DATA: /home/david/SemesterProject/Datasets
 DATASET_JSON: dataset.json
 
+
 # mask encoding types: 0: INSTANCE, 1: CATEGORY, 2: BINARY
 in:
   img:
     name: "in_img"
-    shape: [ 640, 360 ]
+    shape: [640, 320]
   edge: null
   contour: null
   segmentation: null
@@ -27,8 +28,7 @@ TEST:
   NAME: Test
   MAX_IMG: 300
 
-  BATCH_SIZE: 5
-  # BATCH_SIZE: 1
+  BATCH_SIZE: 3
   CACHE: true
   SHUFFLE: false
   PREFETCH: true
@@ -39,20 +39,27 @@ TRAIN:
   NAME: Train
   MAX_IMG: 1500
 
-  BATCH_SIZE: 5
-  # BATCH_SIZE: 1
+  BATCH_SIZE: 3
   CACHE: true
   SHUFFLE: true
   PREFETCH: true
 
-  DATA_AUGMENTATION: null
+  DATA_AUGMENTATION:
+    brightness: 0.25
+    contrast_factor: 0.75
+    hue: 0.05
+    saturation: 0.75
+    apply_random_flip: true
+    noise_std: 0
+    apply_spotlight: false
+    spotlight_strength: 0.3 #max additional value and brightness
 
 REAL_WORLD:
   PATH: /home/david/SemesterProject/Datasets/real_world
 
-  MAX_IMG: 100
+  MAX_IMG: 41
 
-  BATCH_SIZE: 3
+  BATCH_SIZE: 5
 
   CACHE: true
   SHUFFLE: false

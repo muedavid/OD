@@ -7,44 +7,34 @@ SEED: null
 PARSER: false
 CONVERT_TO_TFLITE: false
 
-PADDING: 2
-PIXELS_AT_EDGE_WITHOUT_LOSS: 1
 
-BACKBONE:
-  NAME: MobileNetV2
-  ALPHA: 0.35
-  WEIGHTS: imagenet
-  # OUTPUT_IDX: &idx 3
-  # OUTPUT_IDS: [1, 2, *idx]
-  OUTPUT_IDX: &idx 2
-  OUTPUT_IDS: [1, *idx]
-  TRAIN_IDX: null
-
-  FINE_TUNING:
-    EPOCHS: 5
-    FINE_TUNING: false
+PADDING: 2                          # Num of Pixels at border of output, for which no loss function is applied
+NUM_PIXELS_REGION_OF_ATTRACTION: 1
 
 LOSS:
   edge:
     sigmoid:
-      apply: false
-      class_individually_weighted: false
-      # Values are set, such that recall and precision are similar
-      min_edge_loss_weighting: 0.15
-      max_edge_loss_weighting: 0.85
-    focal:
       apply: true
       edge_loss_weighting: true
       # Values are set, such that recall and precision are similar
-      min_edge_loss_weighting: 0.2
-      max_edge_loss_weighting: 0.8
+      max_edge_loss_weighting_edge: 0.9
+      max_edge_loss_weighting_non_edge: 0.7
+      min_edge_loss_weighting_region_of_attraction: 0.1
+      min_edge_loss_weighting_non_edge: 0.3
+    focal:
+      apply: false
+      edge_loss_weighting: true
+      # Values are set, such that recall and precision are similar
+      max_edge_loss_weighting_edge: 0.9
+      max_edge_loss_weighting_non_edge: 0.7
+      min_edge_loss_weighting_region_of_attraction: 0.1
+      min_edge_loss_weighting_non_edge: 0.3
       power: 4.0
       decay: true
       focal_loss_derivative_threshold: 0.05
   vert: null
   segmentation: null
-  cont: null
-  flow: True
+  flow: true
 
 LR:
   START:  0.001

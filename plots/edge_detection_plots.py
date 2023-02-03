@@ -81,29 +81,6 @@ def plot_edges(images=None, prior=None, labels_edge=None, labels_segmentation=No
                 plt.imshow(predictions_segmentation[i, :, :, j], cmap='gray', vmin=-2, vmax=2)
                 plt.axis('off')
                 subplot_idx += 1
-        
-        # prediction_max = np.where(predictions_segmentation > 0.5, 1.0, 0.0)
-        # prediction_max = tools.squeeze_labels_to_single_dimension(prediction_max)
-        # prediction_max_gt = \
-        #     prediction_max + tf.cast(
-        #         tf.image.resize(labels_edge * 10, (prediction_max.shape[1], prediction_max.shape[2])), tf.int32)
-        #
-        # prior_resized = tf.where(tf.cast(prior, tf.float32) >= 1.0, 1.0, 0.0)
-        # prior_resized = tf.image.resize(prior_resized, (prediction_max.shape[1], prediction_max.shape[2]))
-        # prior_resized = tf.where(prior_resized > 0.7, 1.0, 0.0)
-        # prediction_max_prior = prediction_max + tf.cast(prior_resized, tf.int32)*20
-        # for i in range(num_exp):
-        #     plt.subplot(rows, num_exp, subplot_idx)
-        #     plt.title("with ground truth")
-        #     plt.imshow(prediction_max_gt[i, :, :, 0], cmap='gray', vmin=0, vmax=8)
-        #     plt.axis('off')
-        #     subplot_idx += 1
-        # for i in range(num_exp):
-        #     plt.subplot(rows, num_exp, subplot_idx)
-        #     plt.title("with ground truth")
-        #     plt.imshow(prediction_max_prior[i, :, :, 0], cmap='gray', vmin=0, vmax=8)
-        #     plt.axis('off')
-        #     subplot_idx += 1
     
     if save:
         plt.savefig(path + ".png", bbox_inches='tight')
@@ -114,7 +91,7 @@ def plot_edges(images=None, prior=None, labels_edge=None, labels_segmentation=No
 
 
 def plot_threshold_metrics_evaluation(model, ds, num_classes, classes_displayed_individually=False,
-                                      accuracy_y_lim_min=0.95, padding=0, pixels_at_edge_without_loss=0,
+                                      accuracy_y_lim_min=0.95, padding=0, num_pixels_region_of_attraction=0,
                                       threshold_edge_width=0, save=False, path=None):
     step_width = 0.1
     threshold_array = np.arange(step_width, 1 - step_width, step_width)
@@ -138,20 +115,25 @@ def plot_threshold_metrics_evaluation(model, ds, num_classes, classes_displayed_
                                                                         num_classes=num_classes,
                                                                         classes_individually=classes_displayed_individually,
                                                                         padding=padding,
-                                                                        pixels_at_edge_without_loss=pixels_at_edge_without_loss),
+                                                                        num_pixels_region_of_attraction=num_pixels_region_of_attraction),
                                             metrics.F1Edges(threshold_prediction=threshold_prediction,
                                                             num_classes=num_classes,
                                                             classes_individually=classes_displayed_individually,
                                                             padding=padding,
-                                                            pixels_at_edge_without_loss=pixels_at_edge_without_loss,
+                                                            num_pixels_region_of_attraction=num_pixels_region_of_attraction,
                                                             threshold_edge_width=threshold_edge_width)]})
-        
-        evaluate = model.evaluate(ds, verbose=1)
-        for j in range(num_classes_dimension):
-            accuracy_score[j, i] = evaluate[1 + j]
-            f1_score[j, i] = evaluate[1 + num_classes_dimension + j]
-            precision_score[j, i] = evaluate[1 + 2 * num_classes_dimension + j]
-            recall_score[j, i] = evaluate[1 + 3 * num_classes_dimension + j]
+
+        evaluate = model.evaluate(ds, verbose=0, return_dict=True)
+        accuracy_score[0, i] = evaluate["accuracy"]
+        f1_score[0, i] = evaluate["f1_edges"]
+        precision_score[0, i] = evaluate["precision_edges"]
+        recall_score[0, i] = evaluate["recall_edges"]
+        for j in range(1, num_classes_dimension):
+            accuracy_score[j, i] = evaluate["accuracy_edges_" + str(j)]
+            f1_score[j, i] = evaluate["f1_edges_" + str(j)]
+            precision_score[j, i] = evaluate["precision_edges_" + str(j)]
+            recall_score[j, i] = evaluate["recall_edges_" + str(j)]
+
     
     max_f1_score_idx = np.argmax(f1_score, axis=1)
     max_f1_score = np.amax(f1_score, axis=1)

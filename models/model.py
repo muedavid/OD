@@ -69,10 +69,16 @@ class Model:
                 loss_functions[output_data_cfg["edge"]["name"]] = \
                     edge_losses.FocalLossEdges(power=focal_cfg['power'],
                                                edge_loss_weighting=focal_cfg['edge_loss_weighting'],
-                                               min_edge_loss_weighting=focal_cfg['min_edge_loss_weighting'],
-                                               max_edge_loss_weighting=focal_cfg['max_edge_loss_weighting'],
+                                               max_edge_loss_weighting_edge=focal_cfg['max_edge_loss_weighting_edge'],
+                                               max_edge_loss_weighting_non_edge=focal_cfg[
+                                                   'max_edge_loss_weighting_non_edge'],
+                                               min_edge_loss_weighting_region_of_attraction=focal_cfg[
+                                                   'min_edge_loss_weighting_region_of_attraction'],
+                                               min_edge_loss_weighting_non_edge=focal_cfg[
+                                                   'min_edge_loss_weighting_non_edge'],
                                                padding=self.cfg['PADDING'],
-                                               pixels_at_edge_without_loss=self.cfg['PIXELS_AT_EDGE_WITHOUT_LOSS'],
+                                               num_pixels_region_of_attraction=self.cfg[
+                                                   'NUM_PIXELS_REGION_OF_ATTRACTION'],
                                                decay=focal_cfg["decay"],
                                                focal_loss_derivative_threshold=focal_cfg[
                                                    'focal_loss_derivative_threshold'])
@@ -80,13 +86,20 @@ class Model:
             
             elif edge_loss_cfg['sigmoid']['apply']:
                 sigmoid_cfg = edge_loss_cfg['sigmoid']
-                loss_functions[output_data_cfg["edge"]["name"]] = edge_losses.WeightedMultiLabelSigmoidLoss(
-                    sigmoid_cfg['min_edge_loss_weighting'],
-                    sigmoid_cfg['max_edge_loss_weighting'],
-                    sigmoid_cfg['class_individually_weighted'],
-                    self.cfg['PADDING'], self.cfg['PIXELS_AT_EDGE_WITHOUT_LOSS'])
+                loss_functions[output_data_cfg["edge"]["name"]] = edge_losses.EdgeSigmoidLoss(
+                    edge_loss_weighting=sigmoid_cfg['edge_loss_weighting'],
+                    max_edge_loss_weighting_edge=sigmoid_cfg['max_edge_loss_weighting_edge'],
+                    max_edge_loss_weighting_non_edge=sigmoid_cfg[
+                        'max_edge_loss_weighting_non_edge'],
+                    min_edge_loss_weighting_region_of_attraction=sigmoid_cfg[
+                        'min_edge_loss_weighting_region_of_attraction'],
+                    min_edge_loss_weighting_non_edge=sigmoid_cfg[
+                        'min_edge_loss_weighting_non_edge'],
+                    padding=self.cfg['PADDING'],
+                    num_pixels_region_of_attraction=self.cfg[
+                        'NUM_PIXELS_REGION_OF_ATTRACTION'])
                 
-                self.custom_objects['WeightedMultiLabelSigmoidLoss'] = edge_losses.WeightedMultiLabelSigmoidLoss
+                self.custom_objects['WeightedMultiLabelSigmoidLoss'] = edge_losses.EdgeSigmoidLoss
         if self.cfg['LOSS']['flow']:
             loss_functions['out_flow'] = flow_losses.FlowLoss()
             self.custom_objects['FlowLoss'] = flow_losses.FlowLoss
@@ -109,12 +122,13 @@ class Model:
                                             classes_individually=True,
                                             threshold_prediction=0.5,
                                             padding=self.cfg['PADDING'],
-                                            pixels_at_edge_without_loss=self.cfg['PIXELS_AT_EDGE_WITHOUT_LOSS'],
+                                            num_pixels_region_of_attraction=self.cfg['NUM_PIXELS_REGION_OF_ATTRACTION'],
                                             print_name="edge"),
-                metrics.F1Edges(num_classes=output_data_cfg['edge']['num_classes'], classes_individually=True,
+                metrics.F1Edges(num_classes=output_data_cfg['edge']['num_classes'],
+                                classes_individually=True,
                                 threshold_prediction=0.5,
                                 padding=self.cfg['PADDING'],
-                                pixels_at_edge_without_loss=self.cfg['PIXELS_AT_EDGE_WITHOUT_LOSS'],
+                                num_pixels_region_of_attraction=self.cfg['NUM_PIXELS_REGION_OF_ATTRACTION'],
                                 print_name="edge")]
             
             self.custom_objects['BinaryAccuracyEdges'] = metrics.BinaryAccuracyEdges
@@ -154,6 +168,7 @@ class Model:
         return lr_schedule
     
     def evaluate_and_plot_MF_score(self, model: any, dataset: any, num_classes: int, path: str,
+                                   num_pixels_region_of_attraction: float = None,
                                    threshold_edge_width: float = 0.0):
         """
         evaluate the MF score on the given dataset.
@@ -163,16 +178,18 @@ class Model:
         :param path: the evaluation is save as Figure to the given path
         :param threshold_edge_width: threshold on how far an edge pixel is allowed to be, such that its match still counts as true edge.
         """
+
+        num_pixels_region_of_attraction = \
+            self.cfg['NUM_PIXELS_REGION_OF_ATTRACTION'] if num_pixels_region_of_attraction is None else num_pixels_region_of_attraction
         edge_detection_plots.plot_threshold_metrics_evaluation(model=model,
                                                                ds=dataset,
                                                                num_classes=num_classes,
                                                                classes_displayed_individually=True,
                                                                save=self.cfg["SAVE"],
                                                                path=path,
-                                                               accuracy_y_lim_min=0.8,
+                                                               accuracy_y_lim_min=0.95,
                                                                padding=self.cfg["PADDING"],
-                                                               pixels_at_edge_without_loss=self.cfg[
-                                                                   'PIXELS_AT_EDGE_WITHOUT_LOSS'],
+                                                               num_pixels_region_of_attraction=num_pixels_region_of_attraction,
                                                                threshold_edge_width=threshold_edge_width)
     
     def convert_model_to_tflite(self, model: any):

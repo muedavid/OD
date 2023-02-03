@@ -2,37 +2,17 @@ from tensorflow import keras
 from numpy import array
 from models.network_elements import utils
 
-
-def backbone_edge_detection_without_prior(input_shape=(640, 360, 3), num_filters=5):
+def backbone_edge_detection(input_shape=(640, 360, 3), num_filters=5):
     input_model = keras.Input(shape=input_shape, name="in_img")
     
-    conv_1 = utils.convolution_block(input_model, num_filters=3*num_filters, kernel_size=3, strides=2, RELU=False)
-    conv_2 = utils.mobile_net_v2_inverted_residual(conv_1, depth_multiplier=6)
-    conv_3 = utils.mobile_net_v2_inverted_residual(conv_2, depth_multiplier=6, strides=2)
-    conv_4 = utils.mobile_net_v2_inverted_residual(conv_3, depth_multiplier=6) + conv_3
-    
-    return input_model, conv_2, conv_4
-
-
-def backbone_edge_detection_with_prior(input_shape=(640, 360, 3), num_filters=5):
-    input_model = keras.Input(shape=input_shape, name="in_img")
-    
-    conv_1 = utils.convolution_block(input_model, num_filters=3*num_filters, kernel_size=3, strides=2, RELU=False)
-    conv_2 = utils.mobile_net_v2_inverted_residual(conv_1, depth_multiplier=4)
-    # aw = tf.keras.layers.AveragePooling2D((3, 3), strides=3, padding="SAME")(conv_1)
-    # aw = utils.convolution_block(aw, kernel_size=3, BN=False, RELU=True, num_filters=8, separable=True)
-    # aw = tf.keras.layers.LayerNormalization()(aw)
-    # aw = tf.keras.layers.Activation(activation="hard_sigmoid")(aw)
-    # aw = tf.image.resize(aw, (conv_1.shape[1], conv_1.shape[2]))
-    # conv_1 = conv_1 * aw
+    conv_1 = utils.convolution_block(input_model, num_filters=3*num_filters, kernel_size=3, strides=2, RELU=False, BN=False)
+    conv_2 = utils.mobile_net_v2_inverted_residual(conv_1, depth_multiplier=6, output_depht_multiplier=2)
     conv_3 = utils.mobile_net_v2_inverted_residual(conv_2, depth_multiplier=4) + conv_2
-    # conv_3 = utils.convolution_block(conv_2, kernel_size=3, num_filters=3*num_filters, separable=True)
+    conv_4 = utils.mobile_net_v2_inverted_residual(conv_3, depth_multiplier=2, strides=2)
+    conv_5 = utils.convolution_block(conv_4, num_filters=4 * num_filters, kernel_size=3, separable=True)
+    conv_5 = utils.convolution_block(conv_5, num_filters=4 * num_filters, kernel_size=3, separable=True)
     
-    # conv_2 = utils.convolution_block(conv_1, depthwise=True, kernel_size=3, strides=2, BN=False, RELU=False)
-    
-    conv_4 = utils.mobile_net_v2_inverted_residual(conv_3, depth_multiplier=4, strides=2)
-    
-    return input_model, conv_3, conv_4
+    return input_model, conv_3, conv_5
 
 
 # Paper based backbones

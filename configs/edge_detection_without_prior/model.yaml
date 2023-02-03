@@ -1,4 +1,4 @@
-TRAIN_MODEL: true                   # If a new model should be trained or just loaded
+TRAIN_MODEL: false                   # If a new model should be trained or just loaded
 EPOCHS: 200                         # Number of Epochs
 
 NAME: edge_detection_without_prior  # Name of the Network Architecture
@@ -8,22 +8,26 @@ PARSER: false
 CONVERT_TO_TFLITE: true
 
 PADDING: 2                          # Num of Pixels at border of output, for which no loss function is applied
-PIXELS_AT_EDGE_WITHOUT_LOSS: 1
+NUM_PIXELS_REGION_OF_ATTRACTION: 1
 
 LOSS:
   edge:
     sigmoid:
       apply: true
-      class_individually_weighted: false
-      # Values are set, such that recall and precision are similar
-      min_edge_loss_weighting: 0.15
-      max_edge_loss_weighting: 0.85
+      # if edge_loss_weighting is false: weighted with inverse frequency
+      edge_loss_weighting: true
+      max_edge_loss_weighting_edge: 0.9
+      max_edge_loss_weighting_non_edge: 0.7
+      min_edge_loss_weighting_region_of_attraction: 0.1
+      min_edge_loss_weighting_non_edge: 0.3
     focal:
       apply: false
+      # if edge_loss_weighting is false: weighted with inverse frequency
       edge_loss_weighting: true
-      # Values are set, such that recall and precision are similar
-      min_edge_loss_weighting: 0.2
-      max_edge_loss_weighting: 0.8
+      max_edge_loss_weighting_edge: 0.9
+      max_edge_loss_weighting_non_edge: 0.7
+      min_edge_loss_weighting_region_of_attraction: 0.1
+      min_edge_loss_weighting_non_edge: 0.3
       power: 4.0
       decay: true
       focal_loss_derivative_threshold: 0.05
@@ -34,7 +38,7 @@ LOSS:
 
 LR:
   START:  0.01
-  END:    0.00005
+  END:    0.0001
   POWER: 0.9
 
 CALLBACKS:

@@ -2,37 +2,6 @@ import tensorflow as tf
 from models.network_elements import utils
 
 
-def viot_fusion_module(pyramid_module_input, side_feature_input, num_classes, num_filters_per_class, output_shape,
-                       output_name="out_edge"):
-    num_filters = num_filters_per_class * num_classes
-    fusion_module_1 = tf.keras.layers.Concatenate()([pyramid_module_input, side_feature_input])
-    fusion_module_2 = utils.convolution_block(fusion_module_1, kernel_size=1, num_filters=2 * num_filters, BN=False,
-                                              RELU=False)
-    fusion_module_3 = utils.convolution_block(fusion_module_2, kernel_size=1, num_filters=2 * num_filters)
-    fusion_module_4 = utils.convolution_block(fusion_module_3, kernel_size=1, num_filters=num_filters, separable=True)
-    fusion_module_5 = tf.image.resize(fusion_module_4, output_shape, method="bilinear")
-    fusion_module_6 = utils.convolution_block(fusion_module_5, kernel_size=3, num_filters=num_filters, separable=True)
-    fusion_module_7 = utils.convolution_block(fusion_module_6, BN=False, RELU=False, num_filters=num_classes,
-                                              kernel_size=3)
-    return tf.keras.layers.Activation(activation='sigmoid', name=output_name)(fusion_module_7)
-
-
-def viot_fusion_module_prior_segmentation(pyramid_module_input, side_feature_input, num_classes, num_filters_per_class,
-                                          output_shape,
-                                          output_name="out_edge"):
-    num_filters = num_filters_per_class * num_classes
-    fusion_module_1 = tf.keras.layers.Concatenate()([pyramid_module_input, side_feature_input])
-    fusion_module_2 = utils.convolution_block(fusion_module_1, kernel_size=1, num_filters=2 * num_filters, BN=False,
-                                              RELU=False)
-    fusion_module_3 = utils.convolution_block(fusion_module_2, kernel_size=3, num_filters=2 * num_filters)
-    fusion_module_4 = utils.convolution_block(fusion_module_3, kernel_size=3, num_filters=num_filters, separable=True)
-    fusion_module_5 = tf.image.resize(fusion_module_4, output_shape, method="bilinear")
-    fusion_module_6 = utils.convolution_block(fusion_module_5, kernel_size=3, num_filters=num_filters, separable=True)
-    fusion_module_7 = tf.keras.layers.Conv2D(kernel_size=3, filters=num_classes, name=output_name, padding="SAME")(
-        fusion_module_6)
-    return fusion_module_7
-
-
 # Elements from Paper
 def lite_edge_output(decoder_output, sides, num_classes, output_name="out_edge", output_shape=(320, 180)):
     out = []
@@ -57,14 +26,14 @@ def lite_edge_output(decoder_output, sides, num_classes, output_name="out_edge",
 def FENet(decoder_output, sides, num_classes, output_shape=(320, 160)):
     decoder = tf.image.resize(decoder_output, output_shape)
     
-    dec = tf.keras.layers.Concatenate()([decoder] * 4)
+    adaptive_weight = utils.convolution_block(decoder, num_filters=num_classes * 4, kernel_size=1)
+    adaptive_weight = utils.convolution_block(adaptive_weight, num_filters=num_classes * 4, kernel_size=1)
+    adaptive_weight = utils.convolution_block(adaptive_weight, num_filters=num_classes * 4, kernel_size=1, RELU=False)
     
-    concat = tf.keras.layers.Concatenate()(sides * num_classes + [decoder])
+    fusion_decoder = utils.convolution_block(decoder, num_filters=num_classes)
+    fusion = tf.keras.layers.Concatenate()([fusion_decoder] + sides * num_classes)
     
-    adaptive_weight = utils.convolution_block(concat, kernel_size=1)
-    adaptive_weight = utils.convolution_block(adaptive_weight, kernel_size=1, RELU=False)
-    
-    output = dec * adaptive_weight
+    output = fusion * adaptive_weight
     
     output = tf.reshape(output, [-1, output.shape[1], output.shape[2], 4, num_classes])
     

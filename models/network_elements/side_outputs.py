@@ -2,23 +2,23 @@ import tensorflow as tf
 from models.network_elements import utils
 
 
-def viot_side_feature(x1, output_dims, num_classes, num_filters_per_class, method="bilinear"):
+def viot_side_feature(x1, num_classes, num_filters_per_class):
     num_filters = num_filters_per_class * num_classes
+
+    x1 = utils.convolution_block(x1, kernel_size=1, num_filters=2 * num_filters)
+    x1 = utils.convolution_block(x1, kernel_size=3, separable=True, num_filters=num_filters)
+    x1 = utils.convolution_block(x1, kernel_size=3, num_filters=num_filters)
     
-    x1 = utils.convolution_block(x1, kernel_size=3, separable=True, num_filters=2 * num_filters)
-    x1 = utils.convolution_block(x1, kernel_size=3, separable=True, num_filters=2 * num_filters)
-    x1 = utils.convolution_block(x1, kernel_size=1, separable=True, num_filters=num_filters)
-    if x1.shape[1] != output_dims[0]:
-        x1 = tf.image.resize(x1, output_dims)
     return x1
 
 
-def viot_side_feature_prior(x1, num_classes, num_filters_per_class, method="bilinear"):
-    num_filters = num_filters_per_class * num_classes
-    x1 = utils.mobile_net_v2_inverted_residual(x1, depth_multiplier=6)
-    x1 = utils.convolution_block(x1, kernel_size=3, num_filters=2*num_filters, separable=True)
-    
-    return x1
+# def viot_side_feature_prior(x1, num_classes, num_filters_per_class):
+#     num_filters = num_filters_per_class * num_classes
+#     x1 = utils.convolution_block(x1, kernel_size=3, separable=True, num_filters=2 * num_filters)
+#     x1 = utils.convolution_block(x1, kernel_size=3, separable=True, num_filters=2 * num_filters)
+#     x1 = utils.convolution_block(x1, kernel_size=1, separable=True, num_filters=num_filters)
+#
+#     return x1
 
 
 def viot_side_feature_prior_segmentation(x1, num_classes, num_filters_per_class):
