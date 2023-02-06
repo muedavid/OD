@@ -1,11 +1,13 @@
 TRAIN_MODEL: true
-EPOCHS: 10
+EPOCHS: 100
 
 NAME: segmentation
 SAVE: true
 SEED: null
 PARSER: false
 CONVERT_TO_TFLITE: false
+
+BASE_PATH: '/home/david/SemesterProject/Models'
 
 LOSS:
   edge: null

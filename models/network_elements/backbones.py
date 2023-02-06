@@ -2,17 +2,19 @@ from tensorflow import keras
 from numpy import array
 from models.network_elements import utils
 
+
 def backbone_edge_detection(input_shape=(640, 360, 3), num_filters=5):
     input_model = keras.Input(shape=input_shape, name="in_img")
     
-    conv_1 = utils.convolution_block(input_model, num_filters=3*num_filters, kernel_size=3, strides=2, RELU=False, BN=False)
-    conv_2 = utils.mobile_net_v2_inverted_residual(conv_1, depth_multiplier=6, output_depht_multiplier=2)
-    conv_3 = utils.mobile_net_v2_inverted_residual(conv_2, depth_multiplier=4) + conv_2
-    conv_4 = utils.mobile_net_v2_inverted_residual(conv_3, depth_multiplier=2, strides=2)
-    conv_5 = utils.convolution_block(conv_4, num_filters=4 * num_filters, kernel_size=3, separable=True)
-    conv_5 = utils.convolution_block(conv_5, num_filters=4 * num_filters, kernel_size=3, separable=True)
+    conv_1 = utils.convolution_block(input_model, num_filters=6 * num_filters, kernel_size=3, strides=2, RELU=False,
+                                     BN=False)
+    conv_2 = utils.mobile_net_v2_inverted_residual(conv_1, depth_multiplier=2)
+    conv_3 = utils.mobile_net_v2_inverted_residual(conv_2, depth_multiplier=2, output_depth=4*num_filters)
+    conv_4 = utils.mobile_net_v2_inverted_residual(conv_3, depth_multiplier=4)
+    conv_5 = utils.mobile_net_v2_inverted_residual(conv_4, depth_multiplier=2, strides=2)
+    conv_6 = utils.convolution_block(conv_5, num_filters=4 * num_filters, kernel_size=3, separable=True)
     
-    return input_model, conv_3, conv_5
+    return input_model, conv_3, conv_6
 
 
 # Paper based backbones

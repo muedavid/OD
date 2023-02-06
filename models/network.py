@@ -15,18 +15,16 @@ class NN:
             model = self.edge_detection_without_prior()
         elif self.cfg['NAME'] == 'edge_detection_with_prior':
             model = self.edge_detection_with_prior()
+        elif self.cfg['NAME'] == 'with_prior_test':
+            model = self.edge_detection_with_prior()
         elif self.cfg['NAME'] == 'segmentation':
             model = self.segmentation()
-        # elif self.cfg['NAME'] == 'edge_detection_with_prior_shifted':
-        #     model = self.edge_detection_with_prior_shifted()
         elif self.cfg['NAME'] == 'flow_edge':
             model = self.flow_edge()
         elif self.cfg['NAME'] == 'lite_edge':
             model = self.lite_edge()
         elif self.cfg['NAME'] == 'FENet':
             model = self.FENet()
-        elif self.cfg['NAME'] == 'time':
-            model = self.time_meas()
         else:
             raise ValueError('Model Architecture not implemented')
         return model
@@ -75,7 +73,7 @@ class NN:
         
         input_image, backbone_output_1, backbone_output_2 = \
             backbones.backbone_edge_detection(self.input_shape_img,
-                                                         num_filters=num_filter_per_class * num_classes)
+                                              num_filters=num_filter_per_class * num_classes)
         
         side_output = side_outputs.viot_side_feature(backbone_output_1,
                                                      num_classes=num_classes,
@@ -109,8 +107,8 @@ class NN:
         input_edge = keras.layers.Input(name=self.input_data_cfg["edge"]["name"], shape=input_edge_shape)
         
         input_image, backbone_output_1, backbone_output_2 = \
-            backbones.backbone_edge_detection_with_prior(self.input_shape_img,
-                                                         num_filters=num_filter_per_class * num_classes)
+            backbones.backbone_edge_detection(self.input_shape_img,
+                                              num_filters=num_filter_per_class * num_classes)
         
         side_output = side_outputs.viot_side_feature_prior_segmentation(backbone_output_1,
                                                                         num_classes=
@@ -208,47 +206,3 @@ class NN:
                             outputs=[output])
         
         return model
-    
-    def time_meas(self):
-        input_model = keras.layers.Input(self.input_shape_img, name="in_img")
-        output_model = utils.time_testing_add(input_model)
-        
-        model = keras.Model(inputs=input_model,
-                            outputs=output_model)
-        
-        return model
-    
-    # def edge_detection_without_prior_old(self):
-    #     if self.output_data_cfg["edge"]["num_classes"] == 1:
-    #         num_filter_per_class = 4
-    #     else:
-    #         num_filter_per_class = 2
-    #
-    #     backbone, output_names = backbones.get_backbone(name=self.cfg["BACKBONE"]["NAME"],
-    #                                                     weights=self.cfg["BACKBONE"]["WEIGHTS"],
-    #                                                     input_shape=self.input_shape_img,
-    #                                                     alpha=self.cfg["BACKBONE"]["ALPHA"],
-    #                                                     output_layer=self.cfg["BACKBONE"]["OUTPUT_IDS"],
-    #                                                     trainable_idx=self.cfg["BACKBONE"]["TRAIN_IDX"])
-    #
-    #     # pyramid module for detection at various scale and larger field of view
-    #     x = pyramid_modules.pyramid_module_small_backbone(backbone.output[-1],
-    #                                                       num_classes=self.output_data_cfg["edge"]["num_classes"],
-    #                                                       num_filters_per_class=num_filter_per_class)
-    #
-    #     decoder_output = decoders.decoder_small(x, output_dims=self.output_data_cfg["edge"]["shape"],
-    #                                             num_classes=self.output_data_cfg["edge"]["num_classes"],
-    #                                             num_filters_per_class=num_filter_per_class)
-    #
-    #     sides = side_outputs.side_feature([backbone.output[0], backbone.output[1]],
-    #                                       output_dims=self.output_data_cfg["edge"]["shape"],
-    #                                       num_classes=self.output_data_cfg["edge"]["num_classes"],
-    #                                       num_filters_per_class=num_filter_per_class, name="side")
-    #
-    #     output = outputs.viot_fusion_module(decoder_output, sides, num_classes=self.output_data_cfg["edge"]["num_classes"],
-    #                                         num_filters_per_class=num_filter_per_class,
-    #                                         output_name="out_edge")
-    #
-    #     model = keras.Model(inputs=backbone.input, outputs=[output, x, sides, decoder_output])
-    #
-    #     return model

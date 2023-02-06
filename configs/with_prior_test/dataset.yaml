@@ -1,0 +1,71 @@
+NAME: edge_detection
+
+BASE_PATH_DATA: /home/david/SemesterProject/Datasets
+DATASET_JSON: dataset.json
+
+# mask encoding types: 0: INSTANCE, 1: CATEGORY, 2: BINARY
+in:
+  img:
+    name: "in_img"
+    shape: [320, 180]
+  edge:
+    name: "in_edge"
+    mask_encoding: 2
+    shape: [ 80, 45 ]
+  contour: null
+  segmentation: null
+  prior_img: null
+
+out:
+  edge:
+    name: "out_edge"
+    mask_encoding: 2
+    shape: [ 320, 180 ]
+  contour: null
+  segmentation: null
+  flow: null
+
+
+# DATASETS:
+TEST:
+  NAME: Test
+  MAX_IMG: 50
+
+  BATCH_SIZE: 5
+  CACHE: true
+  SHUFFLE: false
+  PREFETCH: true
+
+  DATA_AUGMENTATION: null
+
+TRAIN:
+  NAME: Train
+  MAX_IMG: 50
+
+  BATCH_SIZE: 5
+  CACHE: true
+  SHUFFLE: true
+  PREFETCH: true
+
+  DATA_AUGMENTATION:
+    brightness: 0.2
+    contrast_factor: 0.8
+    hue: 0.02
+    saturation: 0.9
+    apply_random_flip: true
+    noise_std: 0
+    apply_spotlight: false
+    spotlight_strength: 0.3 #max additional value and brightness
+
+REAL_WORLD:
+  PATH: /home/david/SemesterProject/Datasets/real_world_shifted
+
+  MAX_IMG: 861
+
+  BATCH_SIZE: 1
+
+  CACHE: true
+  SHUFFLE: false
+  PREFETCH: true
+
+  DATA_AUGMENTATION: null

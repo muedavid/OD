@@ -1,0 +1,61 @@
+TRAIN_MODEL: true
+EPOCHS: 100
+
+BASE_PATH: '/home/david/SemesterProject/Models'
+
+NAME: lenet  # Name of the Network Architecture
+SAVE: true                          # Whether the Model and Figures are saved
+SEED: null                          # For the random data generator used by Data Augmentation and Shuffling
+PARSER: false                       # Whether cfgs are given from the terminal
+CONVERT_TO_TFLITE: true
+
+PADDING: 2                          # Num of Pixels at border of output, for which no loss function is applied
+NUM_PIXELS_REGION_OF_ATTRACTION: 1  # Number of Pixels with lower edge loss, see Report
+
+LOSS:
+  edge:
+    sigmoid:
+      apply: true
+      # if edge_loss_weighting is false: weighted with inverse frequency
+      edge_loss_weighting: true
+      # weights such that inverse sampling frequency for (edge + non-edge high weighted) to non-edge:
+      # see Report
+      max_edge_loss_weighting_edge: 0.61
+      max_edge_loss_weighting_non_edge: 0.3
+      min_edge_loss_weighting_region_of_attraction: 0.1
+      min_edge_loss_weighting_non_edge: 0.1
+
+    focal:
+      apply: false
+      # if edge_loss_weighting is false: weighted with inverse frequency
+      edge_loss_weighting: true
+      # weights such that inverse sampling frequency for (edge + non-edge high weighted) to non-edge:
+      # see Report
+      max_edge_loss_weighting_edge: 0.61
+      max_edge_loss_weighting_non_edge: 0.3
+      min_edge_loss_weighting_region_of_attraction: 0.1
+      min_edge_loss_weighting_non_edge: 0.1
+      power: 4.0
+      # experimental, using a power decay in the focal loss
+      decay: false
+      focal_loss_derivative_threshold: 0.05
+  vert: null
+  segmentation: null
+  cont: null
+  flow: null
+
+LR:
+  START:  0.01
+  END:    0.0001
+  POWER: 0.9           # Polynomial learning rate schedule
+
+CALLBACKS:
+  DEL_OLD_CKPT: true
+  CKPT_FREQ: 20       # How often the model is saved during training
+  DEL_OLD_TB: true
+  LOG_TB: false       # Tensorboard is an additional logging tool
+  TENSORBOARD: false
+
+# For Transformation to TFLite. Add the name and category label
+CATEGORIES:
+  edge: 1

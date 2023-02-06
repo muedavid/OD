@@ -7,6 +7,7 @@ SEED: null
 PARSER: false
 CONVERT_TO_TFLITE: false
 
+BASE_PATH: '/home/david/SemesterProject/Models'
 
 PADDING: 2                          # Num of Pixels at border of output, for which no loss function is applied
 NUM_PIXELS_REGION_OF_ATTRACTION: 1
@@ -16,19 +17,21 @@ LOSS:
     sigmoid:
       apply: true
       edge_loss_weighting: true
-      # Values are set, such that recall and precision are similar
-      max_edge_loss_weighting_edge: 0.9
-      max_edge_loss_weighting_non_edge: 0.7
+      # weights such that inverse sampling frequency for (edge + non-edge high weighted) to non-edge:
+      # see Report
+      max_edge_loss_weighting_edge: 0.61
+      max_edge_loss_weighting_non_edge: 0.3
       min_edge_loss_weighting_region_of_attraction: 0.1
-      min_edge_loss_weighting_non_edge: 0.3
+      min_edge_loss_weighting_non_edge: 0.1
     focal:
       apply: false
       edge_loss_weighting: true
-      # Values are set, such that recall and precision are similar
-      max_edge_loss_weighting_edge: 0.9
-      max_edge_loss_weighting_non_edge: 0.7
+      # weights such that inverse sampling frequency for (edge + non-edge high weighted) to non-edge:
+      # see Report
+      max_edge_loss_weighting_edge: 0.61
+      max_edge_loss_weighting_non_edge: 0.3
       min_edge_loss_weighting_region_of_attraction: 0.1
-      min_edge_loss_weighting_non_edge: 0.3
+      min_edge_loss_weighting_non_edge: 0.1
       power: 4.0
       decay: true
       focal_loss_derivative_threshold: 0.05

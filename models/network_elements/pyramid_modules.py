@@ -4,19 +4,20 @@ from models.network_elements import utils
 
 def viot_coarse_features_no_prior(input_layer, num_classes, num_filters_per_class):
     num_filters = num_classes * num_filters_per_class
-
-    image_1 = utils.convolution_block(input_layer, num_filters=4*num_filters, kernel_size=3, separable=True)
+    
+    image_1 = utils.convolution_block(input_layer, num_filters=4 * num_filters, kernel_size=3, separable=True)
     image_4 = utils.mobile_net_v2_inverted_residual(input_layer, strides=2, depth_multiplier=2)
-    image_5 = utils.convolution_block(image_4, kernel_size=1, num_filters=2*num_filters)
-    image_5 = utils.convolution_block(image_5, kernel_size=1, num_filters=2*num_filters)
+    image_5 = utils.convolution_block(image_4, kernel_size=1, num_filters=2 * num_filters)
     image_5 = tf.image.resize(image_5, (input_layer.shape[1], input_layer.shape[2]))
-    image_6 = utils.convolution_block(image_4, kernel_size=3, num_filters=2*num_filters, separable=True)
-    image_6 = utils.convolution_block(image_6, kernel_size=3, num_filters=2*num_filters)
+    image_6 = utils.convolution_block(image_4, kernel_size=3, num_filters=2 * num_filters, separable=True)
+    image_6 = utils.convolution_block(image_6, kernel_size=3, num_filters=2 * num_filters)
+    image_6 = utils.convolution_block(image_6, kernel_size=3, num_filters=2 * num_filters)
     image_6 = tf.image.resize(image_6, (input_layer.shape[1], input_layer.shape[2]))
     image_7 = utils.convolution_block(image_4, kernel_size=5, num_filters=num_filters, separable=True)
+    image_7 = utils.convolution_block(image_7, kernel_size=3, num_filters=2 * num_filters)
     image_7 = tf.image.resize(image_7, (input_layer.shape[1], input_layer.shape[2]))
     image_8 = tf.keras.layers.Concatenate()([image_1, image_5, image_6, image_7])
-    image_9 = utils.convolution_block(image_8, kernel_size=1, num_filters=8 * num_filters)
+    image_9 = utils.convolution_block(image_8, kernel_size=1, num_filters=5 * num_filters)
     image_9 = utils.convolution_block(image_9, kernel_size=1, num_filters=4 * num_filters)
     image_10 = utils.convolution_block(image_9, kernel_size=3, num_filters=4 * num_filters, separable=True)
     image_11 = utils.convolution_block(image_10, kernel_size=3, num_filters=2 * num_filters, separable=True)
@@ -29,21 +30,21 @@ def viot_coarse_features_prior(input_layer, input_edge, num_classes, num_filters
     num_filters = num_classes * num_filters_per_class
     
     edge_1 = utils.convolution_block(input_edge, kernel_size=3, num_filters=num_filters, BN=False)
-    edge_2 = utils.convolution_block(edge_1, kernel_size=3, num_filters=2*num_filters, BN=False)
-    edge_2 = utils.convolution_block(edge_2, kernel_size=1, num_filters=2*num_filters, BN=False)
+    edge_2 = utils.convolution_block(edge_1, kernel_size=3, num_filters=2 * num_filters, BN=False, separable=True)
+    edge_2 = utils.convolution_block(edge_2, kernel_size=3, num_filters=2 * num_filters, BN=False)
     
     image_1 = utils.convolution_block(input_layer, num_filters=2 * num_filters, kernel_size=3, separable=True)
     image_5 = tf.keras.layers.Concatenate()([edge_2, image_1])
     image_6 = utils.convolution_block(image_5, kernel_size=1, num_filters=4 * num_filters)
-    image_7 = utils.convolution_block(image_6, kernel_size=3, num_filters=4 * num_filters, separable=True)
-    image_8 = utils.convolution_block(image_7, kernel_size=3, num_filters=4 * num_filters, separable=True)
+    image_7 = utils.convolution_block(image_6, kernel_size=3, num_filters=4 * num_filters,
+                                      separable=True, RELU_before_BN=False)
+    image_8 = utils.convolution_block(image_7, kernel_size=3, num_filters=2 * num_filters, RELU_before_BN=False)
     image_9 = tf.keras.layers.Concatenate()([image_8, input_layer])
     image_10 = utils.convolution_block(image_9, kernel_size=1, num_filters=4 * num_filters)
     image_11 = utils.convolution_block(image_10, kernel_size=1, num_filters=4 * num_filters)
     image_12 = utils.convolution_block(image_11, kernel_size=3, num_filters=2 * num_filters, separable=True)
-    image_13 = utils.convolution_block(image_12, kernel_size=3, num_filters=2 * num_filters, separable=True)
+    image_13 = utils.convolution_block(image_12, kernel_size=3, num_filters=2 * num_filters, RELU_before_BN=False)
     return image_13
-
 
 def viot_coarse_features_prior_segmentation(input_layer, input_edge, num_classes, num_filters_per_class):
     num_filters = num_classes * num_filters_per_class

@@ -1,13 +1,15 @@
 TRAIN_MODEL: true
 EPOCHS: 200
 
+BASE_PATH: '/home/david/SemesterProject/Models'
+
 NAME: lite_edge
 SAVE: true
-INPUT_SHAPE_IMG: [ 320, 180 ]
-OUTPUT_SHAPE: [ 320, 180 ]
 SEED: null
 PARSER: false
 CONVERT_TO_TFLITE: true
+
+
 
 BACKBONE:
   NAME: MobileNetV2
@@ -25,18 +27,22 @@ LOSS:
       apply: true
       # if edge_loss_weighting is false: weighted with inverse frequency
       edge_loss_weighting: true
-      max_edge_loss_weighting_edge: 0.9
-      max_edge_loss_weighting_non_edge: 0.7
+      # weights such that inverse sampling frequency for (edge + non-edge high weighted) to non-edge:
+      # see Report
+      max_edge_loss_weighting_edge: 0.61
+      max_edge_loss_weighting_non_edge: 0.3
       min_edge_loss_weighting_region_of_attraction: 0.1
-      min_edge_loss_weighting_non_edge: 0.3
+      min_edge_loss_weighting_non_edge: 0.1
     focal:
       apply: false
       # if edge_loss_weighting is false: weighted with inverse frequency
       edge_loss_weighting: true
-      max_edge_loss_weighting_edge: 0.9
-      max_edge_loss_weighting_non_edge: 0.7
+      # weights such that inverse sampling frequency for (edge + non-edge high weighted) to non-edge:
+      # see Report
+      max_edge_loss_weighting_edge: 0.61
+      max_edge_loss_weighting_non_edge: 0.3
       min_edge_loss_weighting_region_of_attraction: 0.1
-      min_edge_loss_weighting_non_edge: 0.3
+      min_edge_loss_weighting_non_edge: 0.1
       power: 4.0
       decay: true
       focal_loss_derivative_threshold: 0.05

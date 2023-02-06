@@ -7,13 +7,13 @@ class ModelData:
     paths = dict()
     files = dict()
     
-    def __init__(self, model, data, model_loaded=None, data_model_loaded=None, make_dirs=False, del_old_ckpt=False,
+    def __init__(self, base_path, model, data, model_loaded=None, data_model_loaded=None, make_dirs=False, del_old_ckpt=False,
                  del_old_tb=True):
-        self.path_definitions(model, data, model_loaded, data_model_loaded, make_dirs)
+        self.path_definitions(base_path, model, data, model_loaded, data_model_loaded, make_dirs)
         self.clean_model_directories(del_old_ckpt, del_old_tb)
     
-    def path_definitions(self, model, data, model_loaded=None, data_model_loaded=None, make_dirs=False):
-        base_path_model = '/home/david/SemesterProject/Models'
+    def path_definitions(self, base_path, model, data, model_loaded=None, data_model_loaded=None, make_dirs=False):
+        base_path_model = base_path
         
         if data_model_loaded is None and model_loaded is not None:
             raise ValueError("Define the Dataset used to train the loaded model")

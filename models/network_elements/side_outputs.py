@@ -1,25 +1,14 @@
 import tensorflow as tf
 from models.network_elements import utils
 
-
 def viot_side_feature(x1, num_classes, num_filters_per_class):
     num_filters = num_filters_per_class * num_classes
 
     x1 = utils.convolution_block(x1, kernel_size=1, num_filters=2 * num_filters)
-    x1 = utils.convolution_block(x1, kernel_size=3, separable=True, num_filters=num_filters)
-    x1 = utils.convolution_block(x1, kernel_size=3, num_filters=num_filters)
+    x1 = utils.convolution_block(x1, kernel_size=3, RELU_before_BN=True, separable=True, num_filters=num_filters)
+    x1 = utils.convolution_block(x1, kernel_size=3, RELU_before_BN=True, num_filters=num_filters)
     
     return x1
-
-
-# def viot_side_feature_prior(x1, num_classes, num_filters_per_class):
-#     num_filters = num_filters_per_class * num_classes
-#     x1 = utils.convolution_block(x1, kernel_size=3, separable=True, num_filters=2 * num_filters)
-#     x1 = utils.convolution_block(x1, kernel_size=3, separable=True, num_filters=2 * num_filters)
-#     x1 = utils.convolution_block(x1, kernel_size=1, separable=True, num_filters=num_filters)
-#
-#     return x1
-
 
 def viot_side_feature_prior_segmentation(x1, num_classes, num_filters_per_class):
     num_filters = num_filters_per_class * num_classes

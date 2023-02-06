@@ -4,18 +4,19 @@ from models.network_elements import utils
 
 def viot_fusion_module(pyramid_module_input, side_feature_input, num_classes, num_filters_per_class, output_shape,
                        output_name="out_edge"):
-    
     num_filters = num_filters_per_class * num_classes
     
-    pyramid_1 = tf.image.resize(pyramid_module_input, (side_feature_input.shape[1], side_feature_input.shape[2]), method="bilinear")
+    pyramid_1 = tf.image.resize(pyramid_module_input, (side_feature_input.shape[1], side_feature_input.shape[2]),
+                                method="bilinear")
     pyramid_2 = utils.convolution_block(pyramid_1, kernel_size=3, num_filters=2 * num_filters, separable=True)
     
     fusion_module_1 = tf.keras.layers.Concatenate()([pyramid_2, side_feature_input])
-    fusion_module_2 = utils.convolution_block(fusion_module_1, kernel_size=1, num_filters=4 * num_filters)
-    fusion_module_3 = utils.convolution_block(fusion_module_2, kernel_size=1, num_filters=4 * num_filters)
-    fusion_module_4 = utils.convolution_block(fusion_module_3, kernel_size=1, num_filters=2 * num_filters)
+    fusion_module_2 = utils.convolution_block(fusion_module_1, kernel_size=1, num_filters=6 * num_filters)
+    fusion_module_3 = utils.convolution_block(fusion_module_2, kernel_size=1, num_filters=num_filters)
+    fusion_module_4 = utils.convolution_block(fusion_module_3, kernel_size=3, num_filters=num_filters, RELU_before_BN=True)
     fusion_module_5 = tf.image.resize(fusion_module_4, output_shape, method="bilinear")
-    fusion_module_6 = utils.convolution_block(fusion_module_5, kernel_size=3, num_filters=num_filters, separable=True)
+    fusion_module_6 = utils.convolution_block(fusion_module_5, kernel_size=3, num_filters=num_filters,
+                                              separable=True, RELU_before_BN=True)
     fusion_module_7 = utils.convolution_block(fusion_module_6, BN=False, RELU=False, num_filters=num_classes,
                                               kernel_size=3)
     return tf.keras.layers.Activation(activation='sigmoid', name=output_name)(fusion_module_7)
@@ -25,7 +26,7 @@ def viot_fusion_module_prior_segmentation(pyramid_module_input, side_feature_inp
                                           output_shape,
                                           output_name="out_segmentation"):
     num_filters = num_filters_per_class * num_classes
-
+    
     pyramid_1 = tf.image.resize(pyramid_module_input, (side_feature_input.shape[1], side_feature_input.shape[2]),
                                 method="bilinear")
     pyramid_2 = utils.convolution_block(pyramid_1, kernel_size=3, num_filters=num_filters, separable=True)
@@ -40,6 +41,7 @@ def viot_fusion_module_prior_segmentation(pyramid_module_input, side_feature_inp
     fusion_module_7 = tf.keras.layers.Conv2D(kernel_size=3, filters=num_classes, name=output_name, padding="SAME")(
         fusion_module_6)
     return fusion_module_7
+
 
 def sged_decoder(decoder_input, side, output_dims, num_classes, num_filters_per_class):
     num_filters = num_filters_per_class * num_classes
@@ -63,7 +65,7 @@ def sged_decoder(decoder_input, side, output_dims, num_classes, num_filters_per_
 
 def lite_edge_decoder(daspp_output, side_output):
     decoder_1 = utils.convolution_block(daspp_output, kernel_size=1, num_filters=96)
-
+    
     decoder_2 = tf.image.resize(decoder_1, (side_output.shape[1], side_output.shape[2]))
     
     decoder_3 = tf.keras.layers.Concatenate()([decoder_2, side_output])

@@ -2,11 +2,13 @@ import tensorflow as tf
 
 
 def convolution_block(block_input, name=None, num_filters=1, kernel_size=3, dilation_rate=1, strides=1, padding="same",
-                      use_bias=True, separable=False, depthwise=False, depth_multiplier=1, BN=True, RELU=True):
+                      use_bias=True, separable=False, depthwise=False, depth_multiplier=1, BN=True, RELU=True,
+                      RELU_before_BN=False):
     if separable and depthwise:
         raise ValueError("only one of the following arguments: separable or depthwise can be True")
-    activation = "relu" if RELU else None
     activation = None
+    if RELU_before_BN:
+        activation = "relu" if RELU else None
     if separable:
         layer_name = None if name is None else name + '_separable_conv'
         x = tf.keras.layers.SeparableConv2D(num_filters, kernel_size=kernel_size, dilation_rate=dilation_rate,
@@ -27,15 +29,17 @@ def convolution_block(block_input, name=None, num_filters=1, kernel_size=3, dila
     if BN:
         layer_name = None if name is None else name + '_bn'
         x = tf.keras.layers.BatchNormalization(name=layer_name)(x)
-    if RELU:
+    if RELU and not RELU_before_BN:
         layer_name = None if name is None else name + '_relu'
         x = tf.keras.layers.ReLU(name=layer_name)(x)
     return x
 
-def mobile_net_v2_inverted_residual(input_layer, depth_multiplier, output_depht_multiplier=1, strides=1):
+
+def mobile_net_v2_inverted_residual(input_layer, depth_multiplier, output_depth=None, strides=1):
+    output_depth = input_layer.shape[-1] if output_depth is None else output_depth
     expand = convolution_block(input_layer, num_filters=input_layer.shape[-1] * depth_multiplier, kernel_size=1)
     depth = convolution_block(expand, depthwise=True, kernel_size=3, strides=strides)
-    output = convolution_block(depth, num_filters=input_layer.shape[-1] * output_depht_multiplier, RELU=False,
+    output = convolution_block(depth, num_filters=output_depth, RELU=False,
                                kernel_size=1)
     return output
 

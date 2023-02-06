@@ -93,8 +93,8 @@ def plot_edges(images=None, prior=None, labels_edge=None, labels_segmentation=No
 def plot_threshold_metrics_evaluation(model, ds, num_classes, classes_displayed_individually=False,
                                       accuracy_y_lim_min=0.95, padding=0, num_pixels_region_of_attraction=0,
                                       threshold_edge_width=0, save=False, path=None):
-    step_width = 0.1
-    threshold_array = np.arange(step_width, 1 - step_width, step_width)
+    step_width = 0.05
+    threshold_array = np.arange(step_width, 1, step_width)
     
     if classes_displayed_individually:
         num_classes_dimension = num_classes + 1

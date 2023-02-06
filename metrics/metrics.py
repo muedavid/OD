@@ -11,20 +11,6 @@ def compute_f1_precision_recall(true_positive, false_positive, false_negative):
     return f1, precision, recall
 
 
-# @tf.function
-# def number_true_false_positive_negative(y_true, y_prediction, padding, num_pixels_region_of_attraction):
-#     mask = mask_pixels_for_computation(y_true, padding, 0)
-#     mask = tf.cast(mask, tf.int32)
-#
-#     number_true_positive = tf.reduce_sum(tf.cast((y_true & y_prediction), tf.int32) * mask, axis=(0, 1, 2))
-#     number_false_positive = tf.reduce_sum(y_prediction * mask, axis=(0, 1, 2)) - number_true_positive
-#     number_true_negative = tf.reduce_sum(tf.cast(((1 - y_prediction) & (1 - y_true)), tf.int32) * mask, axis=(0, 1, 2))
-#     number_false_negative = tf.reduce_sum(tf.cast((1 - y_prediction) * mask, tf.int32),
-#                                           axis=(0, 1, 2)) - number_true_negative
-#
-#     return number_true_positive, number_false_positive, number_true_negative, number_false_negative
-
-
 @tf.function
 def number_true_false_positive_negative(y_true, y_prediction, threshold_edge_width=0, padding=0,
                                         num_pixels_region_of_attraction=0):
@@ -39,12 +25,6 @@ def number_true_false_positive_negative(y_true, y_prediction, threshold_edge_wid
     y_prediction_widen = tf.cast(y_prediction_widen, tf.int32)
     
     number_true_positive = tf.reduce_sum(tf.cast((y_true & y_prediction_widen), tf.int32) * mask, axis=(0, 1, 2))
-    # number_true_positive_1 = tf.reduce_sum(tf.cast((y_true & y_prediction_widen), tf.int32), axis=(0, 1, 2))
-    # y_true_widen = tf.cast(y_true, tf.float32)
-    # y_true_widen = tf.nn.depthwise_conv2d(y_true_widen, kernel, strides=[1, 1, 1, 1], padding="SAME")
-    # y_true_widen = tf.cast(tf.clip_by_value(y_true_widen, 0, 1), tf.int32)
-    # number_true_positive_2 = tf.reduce_sum(tf.cast((y_true_widen & y_prediction), tf.int32), axis=(0, 1, 2))
-    # number_true_positive = tf.math.minimum(number_true_positive_1, number_true_positive_2)
     number_false_positive = tf.reduce_sum(y_prediction * mask, axis=(0, 1, 2)) - number_true_positive
     
     number_true_negative = tf.reduce_sum(tf.cast((1 - y_prediction) & (1 - y_true) * mask, tf.int32), axis=(0, 1, 2))

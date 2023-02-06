@@ -26,7 +26,10 @@ class Model:
         """
         Load the Model Data Class for saving and loading model related data to disk.
         """
-        self.Data = model_data.ModelData(self.cfg["NAME"], dataset_name, make_dirs=True,
+        self.Data = model_data.ModelData(base_path=self.cfg["BASE_PATH"],
+                                         model=self.cfg["NAME"],
+                                         data=dataset_name,
+                                         make_dirs=True,
                                          del_old_ckpt=self.cfg["CALLBACKS"]["DEL_OLD_CKPT"] and self.cfg['TRAIN_MODEL'],
                                          del_old_tb=self.cfg["CALLBACKS"]["DEL_OLD_TB"] and self.cfg['TRAIN_MODEL'])
         
@@ -157,15 +160,52 @@ class Model:
         
         return callbacks
     
-    def get_lr(self, img_count: int, batch_size: int):
+    def get_lr(self, img_count: int, batch_size: int, training_with_batch_norm: bool = True):
         """
-        returns the learning rate schedule used during training
+        returns the learning rate schedule used during training, the first half, the model runs batch norm in inference, afterwards the training argument is set to false
         """
+        # TODO: further examination on how to apply batch norm for training only on synthetic data and inference on real world data.
+
         decay_step = np.ceil(img_count / batch_size) * self.cfg["EPOCHS"]
-        lr_schedule = tf.keras.optimizers.schedules.PolynomialDecay(self.cfg['LR']['START'], decay_steps=decay_step,
-                                                                    end_learning_rate=self.cfg['LR']['END'],
+        start = self.cfg['LR']['START']
+        end = self.cfg['LR']['END']
+        # mid = (self.cfg['LR']['START'] + self.cfg['LR']['END']) / 2.0
+        # if training_with_batch_norm:
+        #     end = mid
+        # else:
+        #     start = mid
+        lr_schedule = tf.keras.optimizers.schedules.PolynomialDecay(start, decay_steps=decay_step,
+                                                                    end_learning_rate=end,
                                                                     power=self.cfg['LR']['POWER'])
         return lr_schedule
+    
+    def train(self, train_ds, test_ds, input_data_cfg, output_data_cfg, img_count, batch_size):
+        if self.train_model:
+            model = self.get_neural_network_model(input_data_cfg, output_data_cfg)
+            
+            lr = self.get_lr(img_count, batch_size, training_with_batch_norm=True)
+            model.compile(optimizer=tf.keras.optimizers.Adam(lr),
+                          loss=self.get_loss_function(output_data_cfg),
+                          metrics=self.get_metrics(output_data_cfg))
+            
+            history = model.fit(train_ds, epochs=self.cfg["EPOCHS"], validation_data=test_ds,
+                                callbacks=self.get_callbacks(), verbose=1)
+            
+            return history
+            # model_input = model.input
+            # model_outputs = model(model_input, training=False)
+            # new_model_outputs = [tf.keras.layers.Activation(activation="linear", name="out_edge")]
+            #
+            # model = tf.keras.Model(inp, x)
+            #
+            # lr = self.get_lr(img_count, batch_size, training_with_batch_norm=True)
+            #
+            # model.compile(optimizer=tf.keras.optimizers.Adam(lr),
+            #               loss=Model.get_loss_function(output_data_cfg),
+            #               metrics=Model.get_metrics(output_data_cfg))
+            #
+            # history_1 = model.fit(train_ds, epochs=int(self.cfg["EPOCHS"]/2), validation_data=test_ds,
+            #                       callbacks=self.get_callbacks(), verbose=1)
     
     def evaluate_and_plot_MF_score(self, model: any, dataset: any, num_classes: int, path: str,
                                    num_pixels_region_of_attraction: float = None,
@@ -178,9 +218,10 @@ class Model:
         :param path: the evaluation is save as Figure to the given path
         :param threshold_edge_width: threshold on how far an edge pixel is allowed to be, such that its match still counts as true edge.
         """
-
+        
         num_pixels_region_of_attraction = \
-            self.cfg['NUM_PIXELS_REGION_OF_ATTRACTION'] if num_pixels_region_of_attraction is None else num_pixels_region_of_attraction
+            self.cfg[
+                'NUM_PIXELS_REGION_OF_ATTRACTION'] if num_pixels_region_of_attraction is None else num_pixels_region_of_attraction
         edge_detection_plots.plot_threshold_metrics_evaluation(model=model,
                                                                ds=dataset,
                                                                num_classes=num_classes,

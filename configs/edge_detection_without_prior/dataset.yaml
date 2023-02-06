@@ -28,7 +28,7 @@ TEST:
   NAME: Test
   MAX_IMG: 300
 
-  BATCH_SIZE: 3
+  BATCH_SIZE: 5
   CACHE: true
   SHUFFLE: false
   PREFETCH: true
@@ -39,7 +39,7 @@ TRAIN:
   NAME: Train
   MAX_IMG: 1500
 
-  BATCH_SIZE: 3
+  BATCH_SIZE: 5
   CACHE: true
   SHUFFLE: true
   PREFETCH: true
@@ -47,9 +47,9 @@ TRAIN:
   DATA_AUGMENTATION:
     brightness: 0.2
     contrast_factor: 0.8
-    hue: 0.01
-    saturation: 0.8
-    apply_random_flip: true
+    hue: 0.02
+    saturation: 0.9
+    apply_random_flip: false
     noise_std: 0
     apply_spotlight: false
     spotlight_strength: 0.3 #max additional value and brightness
