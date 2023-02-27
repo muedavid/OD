@@ -144,7 +144,7 @@ class DataProcessing:
             image = tf.cast(image, tf.uint8)
             dataset_dict[self.cfg["in"]["prior_img"]["name"]] = image
         
-        if self.paths[ds_type]["PRIOR_ANN"]:
+        if "PRIOR_ANN" in self.paths[ds_type].keys():
             # mask input:
             mask_base_path = tf.constant(self.paths[ds_type]['PRIOR_ANN'], dtype=tf.string)
             mask_path = tf.strings.join([mask_base_path, sep_str, img_idx_str, end_str])
@@ -156,7 +156,7 @@ class DataProcessing:
                 dataset_dict[self.cfg["in"][mask_type]["name"]] = \
                     self.preprocess_mask(mask, ds_type, mask_type, True)
         
-        if self.paths[ds_type]["ANN"]:
+        if "ANN" in self.paths[ds_type].keys():
             # mask output:
             mask_base_path = tf.constant(self.paths[ds_type]['ANN'], dtype=tf.string)
             mask_path = tf.strings.join([mask_base_path, sep_str, img_idx_str, end_str])

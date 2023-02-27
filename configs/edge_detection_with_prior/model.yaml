@@ -54,7 +54,3 @@ CALLBACKS:
   DEL_OLD_TB: true
   LOG_TB: false       # Tensorboard is an additional logging tool
   TENSORBOARD: false
-
-# For Transformation to TFLite. Add the name and category label
-CATEGORIES:
-  edge: 1

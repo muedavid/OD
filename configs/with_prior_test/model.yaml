@@ -1,5 +1,5 @@
 TRAIN_MODEL: false
-EPOCHS: 140
+EPOCHS: 100
 
 BASE_PATH: '/home/david/SemesterProject/Models'
 
@@ -20,7 +20,7 @@ LOSS:
       edge_loss_weighting: true
       # weights such that inverse sampling frequency
       max_edge_loss_weighting_edge: 0.9
-      max_edge_loss_weighting_non_edge: 0.45
+      max_edge_loss_weighting_non_edge: 0.5
       min_edge_loss_weighting_region_of_attraction: 0.1
       min_edge_loss_weighting_non_edge: 0.1
     focal:
@@ -42,17 +42,13 @@ LOSS:
   flow: null
 
 LR:
-  START:  0.01
+  START:  0.001
   END:    0.00005
   POWER: 0.9           # Polynomial learning rate schedule
 
 CALLBACKS:
   DEL_OLD_CKPT: true
-  CKPT_FREQ: 20       # How often the model is saved during training
+  CKPT_FREQ: 50       # How often the model is saved during training
   DEL_OLD_TB: true
   LOG_TB: false       # Tensorboard is an additional logging tool
   TENSORBOARD: false
-
-# For Transformation to TFLite. Add the name and category label
-CATEGORIES:
-  edge: 1

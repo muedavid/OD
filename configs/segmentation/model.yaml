@@ -27,10 +27,3 @@ CALLBACKS:
   DEL_OLD_TB: true
   LOG_TB: false
   TENSORBOARD: false
-
-CATEGORIES:
-  base: 1
-  bar: 2
-  cover: 3
-  elektro: 4
-  tube: 5

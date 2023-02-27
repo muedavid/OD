@@ -1,4 +1,4 @@
-NAME: edge_detection
+NAME: edge_detection_larger_shift
 
 BASE_PATH_DATA: /home/david/SemesterProject/Datasets
 DATASET_JSON: dataset.json
@@ -29,7 +29,7 @@ out:
 # DATASETS:
 TEST:
   NAME: Test
-  MAX_IMG: 50
+  MAX_IMG: 100
 
   BATCH_SIZE: 5
   CACHE: true
@@ -40,19 +40,19 @@ TEST:
 
 TRAIN:
   NAME: Train
-  MAX_IMG: 50
+  MAX_IMG: 200
 
-  BATCH_SIZE: 5
-  CACHE: true
+  BATCH_SIZE: 3
+  CACHE: false
   SHUFFLE: true
   PREFETCH: true
 
   DATA_AUGMENTATION:
-    brightness: 0.2
-    contrast_factor: 0.8
-    hue: 0.02
-    saturation: 0.9
-    apply_random_flip: true
+    brightness: 0.25
+    contrast_factor: 0.75
+    hue: 0.01
+    saturation: 0.75
+    apply_random_flip: false
     noise_std: 0
     apply_spotlight: false
     spotlight_strength: 0.3 #max additional value and brightness
@@ -64,8 +64,8 @@ REAL_WORLD:
 
   BATCH_SIZE: 1
 
-  CACHE: true
+  CACHE: false
   SHUFFLE: false
-  PREFETCH: true
+  PREFETCH: false
 
   DATA_AUGMENTATION: null

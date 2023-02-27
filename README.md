@@ -137,39 +137,23 @@ The config file contains several parameters that are used to define the number o
 
 * The "name" parameter is used to define the name of the directory in which the model is stored, as well as the architecture of the model. Therefore, the given name needs to match one of the conditional statements in the get_model() function in the network.py file.
 * The "loss" dictionary needs to match the structure defined in the get_loss_function() function in the model.py file. For example, certain variables may need to be defined for edge detection tasks, while for segmentation tasks, you may only need to set a null value or "true" if a segmentation loss should be applied.
-* The "category" parameter is used to save the model in TFLite format and the "idx" indicates the label of the given class. The name (key) must match the category input in the building plan. Only objects that have a category corresponding to one defined here will be tracked.
 * The "padding" parameter allows setting the number of pixels at the border of the image, for those the loss function is not computed.
 * The "region of attraction variables set the number of adjacent pixels to the ground truth pixel with low loss"
 
 
 ## Applying the Model in the App
 
-In order to use the model in the App, set the category attribute in the building plan. The Category attribute needs to match on value defined in the cfg file. An Example is given below:
+In order to use the model in the App, add the following to flag to the building plan and specify the name of the trained model
 
 building Plan:
 ```
 {
-  "id": "wood_sheet_small_0",
-  "type": "object",
-  "object_type": "wood_sheet_small.obj",
-  "is_already_built": true,
-  "build_instructions": [],
-  "category": "cover"
+  "options": {
+    "CNN": "LEPENet_Mock_Timber_Wall"
+  },
 },
 ```
 
-cfg file:
-```
-CATEGORIES:
-  base: 1
-  bar: 2
-  cover: 3
-  elektro: 4
-  tube: 5
-```
 
-
-Furthermore, copy the resulting tflite and labeling file to the assets folder of the viot_android repository. The files are given at:
-* path: model_cfg['BASE_PATH'] + dataset_name + model_cfg['NAME'] + 'TFLITE'
-* tflite file: file with the ".tflite" suffix
-* labeling file: file with the ".txt" suffix
+Furthermore, copy the resulting tflite file to the assets folder of the viot_android repository. The tflite file is given here:
+* path: model_cfg['BASE_PATH'] + dataset_name + model_cfg['NAME'] + 'TFLITE' + '*.tflite'

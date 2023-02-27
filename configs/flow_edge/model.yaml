@@ -50,6 +50,3 @@ CALLBACKS:
   DEL_OLD_TB: true
   LOG_TB: false
   TENSORBOARD: false
-
-CATEGORIES:
-  edge: 1

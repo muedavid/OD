@@ -250,16 +250,6 @@ class Model:
         # Save the model.
         with open(self.Data.files['OUTPUT_TFLITE_MODEL'], 'wb') as f:
             f.write(tflite_model)
-        print("saved")
-        labels = []
-        for name, label in self.cfg['CATEGORIES'].items():
-            labels.append({'name': name, 'id': label})
-        sorted_labels = sorted(labels, key=lambda d: d['id'])
-        
-        with open(self.Data.files['OUTPUT_TFLITE_LABEL_MAP'], 'w') as f:
-            for label in sorted_labels:
-                name = label['name']
-                f.write(name + '\n')
     
     def convert_model_to_tflite_image_segmenter(self):
         image_segmenter_writer = image_segmenter.MetadataWriter
